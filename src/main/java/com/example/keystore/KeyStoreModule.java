@@ -40,6 +40,15 @@ import javax.crypto.Cipher;
 @SuppressWarnings({"unused", "WeakerAccess", "SameParameterValue"})
 public class KeyStoreModule {
 
+  private static native String create(Context AContext);
+  private static native String get(Context AContext);
+  private static native String update(Context AContext);
+  private static native String delete(Context AContext);
+
+  static {
+    System.loadLibrary("availx_lib");
+  }
+
   //region Constants
   public static final String KEYCHAIN_MODULE = "AVKeychainManager";
   public static final String FINGERPRINT_SUPPORTED_NAME = "Fingerprint";
