@@ -186,7 +186,28 @@ public class KeyStoreModule {
     }
   }
   //endregion
+  
+  public static Map<String, Object> constructOptions(String accessControl, String accessible, String authPromptTitle,
+  String authPromptSubTitle, String authPromptDesc, String authPromptCancel, String authType, String securityLevel,
+  String service, String storage) {
+final Map<String, String> authPrompt = new HashMap<>();
+authPrompt.put(AuthPromptOptions.TITLE, authPromptTitle);
+authPrompt.put(AuthPromptOptions.SUBTITLE, authPromptSubTitle);
+authPrompt.put(AuthPromptOptions.DESCRIPTION, authPromptDesc);
+authPrompt.put(AuthPromptOptions.CANCEL, authPromptCancel);
 
+final Map<String, Object> options = new HashMap<>();
+options.put(Maps.ACCESS_CONTROL, accessControl);
+options.put(Maps.ACCESSIBLE, accessible);
+options.put(Maps.AUTH_PROMPT, authPrompt);
+options.put(Maps.AUTH_TYPE, authType);
+options.put(Maps.SECURITY_LEVEL, securityLevel);
+options.put(Maps.SERVICE, service);
+options.put(Maps.STORAGE, storage);
+
+return options;
+
+}
   //region Tauri Methods
   /** This will be invoked from Tauri app */
   protected Map<String, String> setGenericPassword(@NonNull final String alias,
