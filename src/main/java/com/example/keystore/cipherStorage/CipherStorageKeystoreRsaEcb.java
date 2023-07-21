@@ -233,13 +233,20 @@ public class CipherStorageKeystoreRsaEcb extends CipherStorageBase{
 
     final int keySize = isForTesting ? ENCRYPTION_KEY_SIZE_WHEN_TESTING : ENCRYPTION_KEY_SIZE;
 
-    return new KeyGenParameterSpec.Builder(alias, purposes)
+    KeyGenParameterSpec.Builder builder =  new KeyGenParameterSpec.Builder(alias, purposes)
       .setBlockModes(BLOCK_MODE_ECB)
       .setEncryptionPaddings(PADDING_PKCS1)
       .setRandomizedEncryptionRequired(true)
       .setUserAuthenticationRequired(true)
-      .setUserAuthenticationValidityDurationSeconds(5)
       .setKeySize(keySize);
+    
+      if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.R){
+        builder.setUserAuthenticationParameters(5, KeyProperties.AUTH_BIOMETRIC_STRONG | KeyProperties.AUTH_DEVICE_CREDENTIAL);
+      }else{
+        builder.setUserAuthenticationValidityDurationSeconds(5);
+      } 
+      
+     return builder;
   }
 
   /** Get information about provided key. */

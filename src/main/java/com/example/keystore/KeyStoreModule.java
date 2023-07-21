@@ -186,10 +186,10 @@ public class KeyStoreModule {
     }
   }
   //endregion
-  
-  public static Map<String, Object> constructOptions(String accessControl, String accessible, String authPromptTitle,
-  String authPromptSubTitle, String authPromptDesc, String authPromptCancel, String authType, String securityLevel,
-  String service, String storage) {
+
+  public static Map<String, Object> constructOptions(String service, String authPromptTitle, String  authPromptSubTitle,
+      String authPromptDesc, String authPromptCancel, String accessible, String accessControl, String storage, String securityLevel,
+      String authType ) {
 final Map<String, String> authPrompt = new HashMap<>();
 authPrompt.put(AuthPromptOptions.TITLE, authPromptTitle);
 authPrompt.put(AuthPromptOptions.SUBTITLE, authPromptSubTitle);
