@@ -187,11 +187,20 @@ public class CipherStorageKeystoreAesCbc extends CipherStorageBase{
 
     final int purposes = KeyProperties.PURPOSE_DECRYPT | KeyProperties.PURPOSE_ENCRYPT;
 
-    return new KeyGenParameterSpec.Builder(alias, purposes)
-      .setBlockModes(BLOCK_MODE_CBC)
-      .setEncryptionPaddings(PADDING_PKCS7)
-      .setRandomizedEncryptionRequired(true)
-      .setKeySize(ENCRYPTION_KEY_SIZE);
+    KeyGenParameterSpec.Builder builder =  new KeyGenParameterSpec.Builder(alias, purposes)
+    .setBlockModes(BLOCK_MODE_CBC)
+    .setEncryptionPaddings(PADDING_PKCS7)
+    .setRandomizedEncryptionRequired(true)
+    .setUserAuthenticationRequired(true)
+    .setKeySize(ENCRYPTION_KEY_SIZE);
+  
+    if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.R){
+      builder.setUserAuthenticationParameters(10, KeyProperties.AUTH_DEVICE_CREDENTIAL);
+    }else{
+      builder.setUserAuthenticationValidityDurationSeconds(10);
+    } 
+    
+   return builder;
   }
 
   /** Get information about provided key. */

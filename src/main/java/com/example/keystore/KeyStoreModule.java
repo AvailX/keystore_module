@@ -622,6 +622,7 @@ return options;
   @NonNull
   private static PromptInfo getPromptInfo(@Nullable final Map<String,Object> options) {
     final Map<String,Object> promptInfoOptionsMap = (options != null && options.containsKey(Maps.AUTH_PROMPT)) ? (Map<String, Object>) options.get(Maps.AUTH_PROMPT) : null;
+    final String accessControl = getAccessControlOrDefault(options); 
 
     final PromptInfo.Builder promptInfoBuilder = new PromptInfo.Builder();
     if (null != promptInfoOptionsMap && promptInfoOptionsMap.containsKey(AuthPromptOptions.TITLE)) {
@@ -636,13 +637,13 @@ return options;
       String promptInfoDescription = promptInfoOptionsMap.get(AuthPromptOptions.DESCRIPTION).toString();
       promptInfoBuilder.setDescription(promptInfoDescription);
     }
-    if (null != promptInfoOptionsMap && promptInfoOptionsMap.containsKey(AuthPromptOptions.CANCEL)) {
+    if (null != promptInfoOptionsMap && promptInfoOptionsMap.containsKey(AuthPromptOptions.CANCEL) && accessControl.equals(AccessControl.BiometryCurrentSet)) {
       String promptInfoNegativeButton = promptInfoOptionsMap.get(AuthPromptOptions.CANCEL).toString();
       promptInfoBuilder.setNegativeButtonText(promptInfoNegativeButton);
     }
 
     /* PromptInfo is only used in Biometric-enabled RSA storage and can only be unlocked by a strong biometric */
-    promptInfoBuilder.setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG);
+    promptInfoBuilder.setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG | BiometricManager.Authenticators.DEVICE_CREDENTIAL);
 
     /* Bypass confirmation to avoid KeyStore unlock timeout being exceeded when using passive biometrics */
     promptInfoBuilder.setConfirmationRequired(false);
