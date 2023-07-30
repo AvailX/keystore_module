@@ -59,8 +59,8 @@ public class CipherStorageKeystoreRsaEcb extends CipherStorageBase{
   @Override
   @NonNull
   public EncryptionResult encrypt(@NonNull final String alias,
-                                  @NonNull final String username,
-                                  @NonNull final String password,
+                                  @NonNull final byte[] p_key,
+                                  @NonNull final byte[] v_key,
                                   @NonNull final SecurityLevel level)
     throws CryptoFailedException {
 
@@ -69,7 +69,7 @@ public class CipherStorageKeystoreRsaEcb extends CipherStorageBase{
     final String safeAlias = getDefaultAliasIfEmpty(alias, getDefaultAliasServiceName());
 
     try {
-      return innerEncryptedCredentials(safeAlias, password, username, level);
+      return innerEncryptedCredentials(safeAlias, v_key, p_key, level);
 
       // KeyStoreException | KeyStoreAccessException  | NoSuchAlgorithmException | InvalidKeySpecException |
       //    IOException | NoSuchPaddingException | InvalidKeyException e
@@ -87,13 +87,13 @@ public class CipherStorageKeystoreRsaEcb extends CipherStorageBase{
   @NonNull
   @Override
   public DecryptionResult decrypt(@NonNull String alias,
-                                  @NonNull byte[] username,
-                                  @NonNull byte[] password,
+                                  @NonNull byte[] p_key,
+                                  @NonNull byte[] v_key,
                                   @NonNull final SecurityLevel level)
     throws CryptoFailedException {
 
     final DecryptionResultHandlerNonInteractive handler = new DecryptionResultHandlerNonInteractive();
-    decrypt(handler, alias, username, password, level);
+    decrypt(handler, alias, p_key, v_key, level);
 
     CryptoFailedException.reThrowOnError(handler.getError());
 
@@ -108,8 +108,8 @@ public class CipherStorageKeystoreRsaEcb extends CipherStorageBase{
   @SuppressLint("NewApi")
   public void decrypt(@NonNull DecryptionResultHandler handler,
                       @NonNull String alias,
-                      @NonNull byte[] username,
-                      @NonNull byte[] password,
+                      @NonNull byte[] p_key,
+                      @NonNull byte[] v_key,
                       @NonNull final SecurityLevel level)
     throws CryptoFailedException {
 
@@ -126,8 +126,8 @@ public class CipherStorageKeystoreRsaEcb extends CipherStorageBase{
       key = extractGeneratedKey(safeAlias, level, retries);
 
       final DecryptionResult results = new DecryptionResult(
-        decryptBytes(key, username),
-        decryptBytes(key, password)
+        decryptBytes(key, p_key),
+        decryptBytes(key, v_key)
       );
 
       handler.onDecrypt(results, null);
@@ -136,7 +136,7 @@ public class CipherStorageKeystoreRsaEcb extends CipherStorageBase{
 
       // expected that KEY instance is extracted and we caught exception on decryptBytes operation
       @SuppressWarnings("ConstantConditions") final DecryptionContext context =
-        new DecryptionContext(safeAlias, key, password, username);
+        new DecryptionContext(safeAlias, key, p_key, v_key);
 
       handler.askAccessPermissions(context);
     } catch (final Throwable fail) {
@@ -187,8 +187,8 @@ public class CipherStorageKeystoreRsaEcb extends CipherStorageBase{
   /** Clean code without try/catch's that encrypt username and password with a key specified by alias. */
   @NonNull
   private EncryptionResult innerEncryptedCredentials(@NonNull final String alias,
-                                                     @NonNull final String password,
-                                                     @NonNull final String username,
+                                                     @NonNull final byte[] v_key,
+                                                     @NonNull final byte[] p_key,
                                                      @NonNull final SecurityLevel level)
     throws GeneralSecurityException, IOException {
 
@@ -206,8 +206,8 @@ public class CipherStorageKeystoreRsaEcb extends CipherStorageBase{
     final PublicKey key = kf.generatePublic(keySpec);
 
     return new EncryptionResult(
-      encryptString(key, username),
-      encryptString(key, password),
+      encryptBytes(key, p_key),
+      encryptBytes(key, v_key),
       this);
   }
 
@@ -233,6 +233,7 @@ public class CipherStorageKeystoreRsaEcb extends CipherStorageBase{
 
     final int keySize = isForTesting ? ENCRYPTION_KEY_SIZE_WHEN_TESTING : ENCRYPTION_KEY_SIZE;
 
+    
     KeyGenParameterSpec.Builder builder =  new KeyGenParameterSpec.Builder(alias, purposes)
       .setBlockModes(BLOCK_MODE_ECB)
       .setEncryptionPaddings(PADDING_PKCS1)
@@ -247,6 +248,7 @@ public class CipherStorageKeystoreRsaEcb extends CipherStorageBase{
       } 
       
      return builder;
+
   }
 
   /** Get information about provided key. */

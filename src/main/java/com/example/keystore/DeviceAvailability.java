@@ -52,5 +52,4 @@ import static androidx.biometric.BiometricManager.BIOMETRIC_SUCCESS;
       return context.checkSelfPermission(Manifest.permission.USE_FINGERPRINT) == PERMISSION_GRANTED;
     }
   }
-  
 

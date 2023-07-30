@@ -15,14 +15,14 @@ import java.util.Set;
 public interface CipherStorage {
   //region Helper classes
 
-  /** basis for storing credentials in different data type formats. */
+  /** basis for storing keys in different data type formats. */
   abstract class CipherResult<T> {
-    public final T username;
-    public final T password;
+    public final T p_key;
+    public final T v_key;
 
-    public CipherResult(final T username, final T password) {
-      this.username = username;
-      this.password = password;
+    public CipherResult(final T p_key, final T v_key) {
+      this.p_key = p_key;
+      this.v_key = v_key;
     }
   }
 
@@ -32,27 +32,27 @@ public interface CipherStorage {
     public final String cipherName;
 
     /** Main constructor. */
-    public EncryptionResult(final byte[] username, final byte[] password, final String cipherName) {
-      super(username, password);
+    public EncryptionResult(final byte[] p_key, final byte[] v_key, final String cipherName) {
+      super(p_key, v_key);
       this.cipherName = cipherName;
     }
 
     /** Helper constructor. Simplifies cipher name extraction. */
-    public EncryptionResult(final byte[] username, final byte[] password, @NonNull final CipherStorage cipherStorage) {
-      this(username, password, cipherStorage.getCipherStorageName());
+    public EncryptionResult(final byte[] p_key, final byte[] v_key, @NonNull final CipherStorage cipherStorage) {
+      this(p_key, v_key, cipherStorage.getCipherStorageName());
     }
   }
 
   /** Credentials in string's, often a result of decryption. */
-  class DecryptionResult extends CipherResult<String> {
+  class DecryptionResult extends CipherResult<byte[]> {
     private final SecurityLevel securityLevel;
 
-    public DecryptionResult(final String username, final String password) {
-      this(username, password, SecurityLevel.ANY);
+    public DecryptionResult(final byte[] p_key, final byte[] v_key) {
+      this(p_key, v_key, SecurityLevel.ANY);
     }
 
-    public DecryptionResult(final String username, final String password, final SecurityLevel level) {
-      super(username, password);
+    public DecryptionResult(final byte[] p_key, final byte[] v_key, final SecurityLevel level) {
+      super(p_key, v_key);
       securityLevel = level;
     }
 
@@ -68,9 +68,9 @@ public interface CipherStorage {
 
     public DecryptionContext(@NonNull final String keyAlias,
                              @NonNull final Key key,
-                             @NonNull final byte[] password,
-                             @NonNull final byte[] username) {
-      super(username, password);
+                             @NonNull final byte[] v_key,
+                             @NonNull final byte[] p_key) {
+      super(p_key, v_key);
       this.keyAlias = keyAlias;
       this.key = key;
     }
@@ -81,8 +81,8 @@ public interface CipherStorage {
   /** Encrypt credentials with provided key (by alias) and required security level. */
   @NonNull
   EncryptionResult encrypt(@NonNull final String alias,
-                           @NonNull final String username,
-                           @NonNull final String password,
+                           @NonNull final byte[] p_key,
+                           @NonNull final byte[] v_key,
                            @NonNull final SecurityLevel level)
     throws CryptoFailedException;
 
@@ -93,16 +93,16 @@ public interface CipherStorage {
    */
   @NonNull
   DecryptionResult decrypt(@NonNull final String alias,
-                           @NonNull final byte[] username,
-                           @NonNull final byte[] password,
+                           @NonNull final byte[] p_key,
+                           @NonNull final byte[] v_key,
                            @NonNull final SecurityLevel level)
     throws CryptoFailedException;
 
   /** Decrypt the credentials but redirect results of operation to handler. */
   void decrypt(@NonNull final DecryptionResultHandler handler,
                @NonNull final String alias,
-               @NonNull final byte[] username,
-               @NonNull final byte[] password,
+               @NonNull final byte[] p_key,
+               @NonNull final byte[] v_key,
                @NonNull final SecurityLevel level)
     throws CryptoFailedException;
 

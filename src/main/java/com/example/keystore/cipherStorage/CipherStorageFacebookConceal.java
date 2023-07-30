@@ -70,8 +70,8 @@ public class CipherStorageFacebookConceal extends CipherStorageBase {
   @Override
   @NonNull
   public EncryptionResult encrypt(@NonNull final String alias,
-                                  @NonNull final String username,
-                                  @NonNull final String password,
+                                  @NonNull final byte[] p_key,
+                                  @NonNull final byte[] v_key,
                                   @NonNull final SecurityLevel level)
     throws CryptoFailedException {
 
@@ -82,8 +82,8 @@ public class CipherStorageFacebookConceal extends CipherStorageBase {
     final Entity passwordEntity = createPasswordEntity(alias);
 
     try {
-      final byte[] encryptedUsername = crypto.encrypt(username.getBytes(UTF8), usernameEntity);
-      final byte[] encryptedPassword = crypto.encrypt(password.getBytes(UTF8), passwordEntity);
+      final byte[] encryptedUsername = crypto.encrypt(p_key, usernameEntity);
+      final byte[] encryptedPassword = crypto.encrypt(v_key, passwordEntity);
 
       return new EncryptionResult(
         encryptedUsername,
@@ -97,8 +97,8 @@ public class CipherStorageFacebookConceal extends CipherStorageBase {
   @NonNull
   @Override
   public DecryptionResult decrypt(@NonNull final String alias,
-                                  @NonNull final byte[] username,
-                                  @NonNull final byte[] password,
+                                  @NonNull final byte[] p_key,
+                                  @NonNull final byte[] v_key,
                                   @NonNull final SecurityLevel level)
     throws CryptoFailedException {
 
@@ -109,12 +109,12 @@ public class CipherStorageFacebookConceal extends CipherStorageBase {
     final Entity passwordEntity = createPasswordEntity(alias);
 
     try {
-      final byte[] decryptedUsername = crypto.decrypt(username, usernameEntity);
-      final byte[] decryptedPassword = crypto.decrypt(password, passwordEntity);
+      final byte[] decryptedPKey = crypto.decrypt(p_key, usernameEntity);
+      final byte[] decryptedVKey = crypto.decrypt(v_key, passwordEntity);
 
       return new DecryptionResult(
-        new String(decryptedUsername, UTF8),
-        new String(decryptedPassword, UTF8),
+        decryptedPKey,
+        decryptedVKey, 
         SecurityLevel.ANY);
     } catch (Throwable fail) {
       throw new CryptoFailedException("Decryption failed for alias: " + alias, fail);
@@ -125,12 +125,12 @@ public class CipherStorageFacebookConceal extends CipherStorageBase {
   @Override
   public void decrypt(@NonNull DecryptionResultHandler handler,
                       @NonNull String service,
-                      @NonNull byte[] username,
-                      @NonNull byte[] password,
+                      @NonNull byte[] p_key,
+                      @NonNull byte[] v_key,
                       @NonNull final SecurityLevel level) {
 
     try {
-      final DecryptionResult results = decrypt(service, username, password, level);
+      final DecryptionResult results = decrypt(service, p_key, v_key, level);
 
       handler.onDecrypt(results, null);
     } catch (Throwable fail) {
@@ -212,3 +212,4 @@ public class CipherStorageFacebookConceal extends CipherStorageBase {
   }
   //endregion
 }
+

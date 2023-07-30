@@ -25,11 +25,10 @@ import com.example.keystore.exceptions.EmptyParameterException;
 import com.example.keystore.exceptions.KeyStoreAccessException;
 import com.example.keystore.exceptions.CryptoFailedException;
 
-
-import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -37,19 +36,25 @@ import java.util.concurrent.TimeUnit;
 
 import javax.crypto.Cipher;
 
-@SuppressWarnings({"unused", "WeakerAccess", "SameParameterValue"})
+@SuppressWarnings({ "unused", "WeakerAccess", "SameParameterValue" })
 public class KeyStoreModule {
+  private static native String create(@NonNull final String alias,
+      @NonNull final byte[] p_key,
+      @NonNull final byte[] v_key,
+      @Nullable final Map<String, Object> options,
+      @NonNull final Context AContext);
 
-  private static native String create(Context AContext);
-  private static native String get(Context AContext);
-  private static native String update(Context AContext);
-  private static native String delete(Context AContext);
+  private static native String get(@NonNull final String alias,
+      @Nullable final Map<String, Object> options, @NonNull final Context AContext);
+
+  private static native String update(@NonNull final String alias);
+
+  private static native String delete(@NonNull final String alias);
 
   static {
     System.loadLibrary("availx_lib");
   }
-
-  //region Constants
+  // region Constants
   public static final String KEYCHAIN_MODULE = "AVKeychainManager";
   public static final String FINGERPRINT_SUPPORTED_NAME = "Fingerprint";
   public static final String FACE_SUPPORTED_NAME = "Face";
@@ -58,16 +63,10 @@ public class KeyStoreModule {
   public static final String WARMING_UP_ALIAS = "warmingUp";
 
   private static final String LOG_TAG = KeyStoreModule.class.getSimpleName();
-  
 
-  @StringDef({AccessControl.NONE
-    , AccessControl.USER_PRESENCE
-    , AccessControl.BIOMETRY_ANY
-    , AccessControl.BIOMETRY_CURRENT_SET
-    , AccessControl.DEVICE_PASSCODE
-    , AccessControl.APPLICATION_PASSWORD
-    , AccessControl.BIOMETRY_ANY_OR_DEVICE_PASSCODE
-    , AccessControl.BIOMETRY_CURRENT_SET_OR_DEVICE_PASSCODE})
+  @StringDef({ AccessControl.NONE, AccessControl.USER_PRESENCE, AccessControl.BIOMETRY_ANY,
+      AccessControl.BIOMETRY_CURRENT_SET, AccessControl.DEVICE_PASSCODE, AccessControl.APPLICATION_PASSWORD,
+      AccessControl.BIOMETRY_ANY_OR_DEVICE_PASSCODE, AccessControl.BIOMETRY_CURRENT_SET_OR_DEVICE_PASSCODE })
   @interface AccessControl {
     String NONE = "None";
     String USER_PRESENCE = "UserPresence";
@@ -111,7 +110,7 @@ public class KeyStoreModule {
     /** Raised for unexpected errors. */
     String E_UNKNOWN_ERROR = "E_UNKNOWN_ERROR";
   }
-  
+
   /** Supported ciphers. */
   public @interface KnownCiphers {
     /** Facebook conceal compatibility lib in use. */
@@ -123,30 +122,31 @@ public class KeyStoreModule {
   }
 
   /** Secret manipulation rules. */
-  @StringDef({Rules.AUTOMATIC_UPGRADE, Rules.NONE})
+  @StringDef({ Rules.AUTOMATIC_UPGRADE, Rules.NONE })
   @interface Rules {
     String NONE = "none";
     String AUTOMATIC_UPGRADE = "automaticUpgradeToMoreSecuredStorage";
   }
-  //endregion
+  // endregion
 
-  //region Members
-  /** Name-to-instance lookup  map. */
+  // region Members
+  /** Name-to-instance lookup map. */
   private final Map<String, CipherStorage> cipherStorageMap = new HashMap<>();
   /** Shared preferences storage. */
   private final PrefsStorage prefsStorage;
-  //endregion
+  // endregion
 
   /** Default constructor. */
   public KeyStoreModule(@NonNull final Context AContext) {
     super();
-    
+
     prefsStorage = new PrefsStorage(AContext);
-    
+
     addCipherStorageToMap(new CipherStorageFacebookConceal(AContext));
     addCipherStorageToMap(new CipherStorageKeystoreAesCbc());
 
-    // we have a references to newer api that will fail load of app classes in old androids OS
+    // we have a references to newer api that will fail load of app classes in old
+    // androids OS
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
       addCipherStorageToMap(new CipherStorageKeystoreRsaEcb());
     }
@@ -163,10 +163,13 @@ public class KeyStoreModule {
 
     return instance;
   }
-  
-  /** cipher (crypto api) warming up logic. force java load classes and intializations. */
+
+  /**
+   * cipher (crypto api) warming up logic. force java load classes and
+   * intializations.
+   */
   private void internalWarmingBestCipher(Context AContext) {
-    
+
     try {
       final long startTime = System.nanoTime();
 
@@ -179,93 +182,97 @@ public class KeyStoreModule {
       best.getKeyStoreAndLoad();
 
       Log.v(KEYCHAIN_MODULE, "warming up takes: " +
-        TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime) +
-        " ms");
+          TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime) +
+          " ms");
     } catch (Throwable ex) {
       Log.e(KEYCHAIN_MODULE, "warming up failed!", ex);
     }
   }
-  //endregion
+  // endregion
 
   public static Map<String, Object> constructOptions(String service, String authPromptTitle, String  authPromptSubTitle,
       String authPromptDesc, String authPromptCancel, String accessible, String accessControl, String storage, String securityLevel,
       String authType ) {
-final Map<String, String> authPrompt = new HashMap<>();
-authPrompt.put(AuthPromptOptions.TITLE, authPromptTitle);
-authPrompt.put(AuthPromptOptions.SUBTITLE, authPromptSubTitle);
-authPrompt.put(AuthPromptOptions.DESCRIPTION, authPromptDesc);
-authPrompt.put(AuthPromptOptions.CANCEL, authPromptCancel);
+    final Map<String, String> authPrompt = new HashMap<>();
+    authPrompt.put(AuthPromptOptions.TITLE, authPromptTitle);
+    authPrompt.put(AuthPromptOptions.SUBTITLE, authPromptSubTitle);
+    authPrompt.put(AuthPromptOptions.DESCRIPTION, authPromptDesc);
+    authPrompt.put(AuthPromptOptions.CANCEL, authPromptCancel);
 
-final Map<String, Object> options = new HashMap<>();
-options.put(Maps.ACCESS_CONTROL, accessControl);
-options.put(Maps.ACCESSIBLE, accessible);
-options.put(Maps.AUTH_PROMPT, authPrompt);
-options.put(Maps.AUTH_TYPE, authType);
-options.put(Maps.SECURITY_LEVEL, securityLevel);
-options.put(Maps.SERVICE, service);
-options.put(Maps.STORAGE, storage);
+    final Map<String, Object> options = new HashMap<>();
+    options.put(Maps.ACCESS_CONTROL, accessControl);
+    options.put(Maps.ACCESSIBLE, accessible);
+    options.put(Maps.AUTH_PROMPT, authPrompt);
+    options.put(Maps.AUTH_TYPE, authType);
+    options.put(Maps.SECURITY_LEVEL, securityLevel);
+    options.put(Maps.SERVICE, service);
+    options.put(Maps.STORAGE, storage);
 
-return options;
+    return options;
 
-}
-  //region Tauri Methods
+  }
+
+  // region Tauri Methods
   /** This will be invoked from Tauri app */
   protected Map<String, String> setGenericPassword(@NonNull final String alias,
-                                    @NonNull final String username,
-                                    @NonNull final String password,
-                                    @Nullable final Map <String, Object> options,
-                                    @NonNull final Context AContext) {
+      @NonNull final byte[] p_key,
+      @NonNull final byte[] v_key,
+      @Nullable final Map<String, Object> options,
+      @NonNull final Context AContext) {
     try {
-      throwIfEmptyLoginPassword(username, password);
-
+      //throwIfEmptyLoginPassword(p_key, v_key)
       final SecurityLevel level = getSecurityLevelOrDefault(options);
-      final CipherStorage storage = getSelectedStorage(options,AContext);
+      final CipherStorage storage = getSelectedStorage(options, AContext);
 
       throwIfInsufficientLevel(storage, level);
 
-      final EncryptionResult result = storage.encrypt(alias, username, password, level);
+      //make individual to p_key and v_key
+      final EncryptionResult result = storage.encrypt(alias, p_key, v_key, level);
       prefsStorage.storeEncryptedEntry(alias, result);
 
       final Map<String, String> results = new HashMap<>();
       results.put(Maps.SERVICE, alias);
       results.put(Maps.STORAGE, storage.getCipherStorageName());
 
+      System.out.println("SET RESULT");
+      System.out.println(results);
       return results;
+      /**
     } catch (EmptyParameterException e) {
       Log.e(KEYCHAIN_MODULE, e.getMessage(), e);
 
       final Map<String, String> error = new HashMap<>();
       error.put(Errors.E_EMPTY_PARAMETERS, String.valueOf(e));
       return error;
-      
+*/
     } catch (CryptoFailedException e) {
       Log.e(KEYCHAIN_MODULE, e.getMessage(), e);
 
       final Map<String, String> error = new HashMap<>();
       error.put(Errors.E_CRYPTO_FAILED, String.valueOf(e));
       return error;
-      
+
     } catch (Throwable fail) {
       Log.e(KEYCHAIN_MODULE, fail.getMessage(), fail);
 
       final Map<String, String> error = new HashMap<>();
       error.put(Errors.E_UNKNOWN_ERROR, fail.getMessage());
       return error;
-      
+
     }
   }
-  
+
   public void setGenericPasswordForOptions(@Nullable final Map<String, Object> options,
-                                           @NonNull final String username,
-                                           @NonNull final String password,Context AContext) {
+      @NonNull final byte[] p_key,
+      @NonNull final byte[] v_key, Context AContext) {
     final String service = getServiceOrDefault(options);
-    setGenericPassword(service, username, password, options,AContext);
+    setGenericPassword(service, p_key, v_key, options, AContext);
   }
 
   /** Get Cipher storage instance based on user provided options. */
   @NonNull
-  private CipherStorage getSelectedStorage(@Nullable final Map<String, Object> options,Context AContext)
-    throws CryptoFailedException {
+  private CipherStorage getSelectedStorage(@Nullable final Map<String, Object> options, Context AContext)
+      throws CryptoFailedException {
     final String accessControl = getAccessControlOrDefault(options);
     final boolean useBiometry = getUseBiometry(accessControl);
     final String cipherName = getSpecificStorageOrDefault(options);
@@ -278,22 +285,22 @@ return options;
 
     // attempt to access none existing storage will force fallback logic.
     if (null == result) {
-      result = getCipherStorageForCurrentAPILevel(useBiometry,AContext);
+      result = getCipherStorageForCurrentAPILevel(useBiometry, AContext);
     }
 
     return result;
   }
 
   /** This will be invoked from Tauri app */
-  protected Map<String, String> getGenericPassword(@NonNull final String alias,
-                                    @Nullable final Map<String, Object> options,Context AContext) {
+  protected Map<String, Object> getGenericPassword(@NonNull final String alias,
+      @Nullable final Map<String, Object> options, Context AContext) {
     try {
       final ResultSet resultSet = prefsStorage.getEncryptedEntry(alias);
 
       if (resultSet == null) {
         Log.e(KEYCHAIN_MODULE, "No entry found for service: " + alias);
 
-        final Map<String, String> error = new HashMap<>();
+        final Map<String, Object> error = new HashMap<>();
         error.put(KEYCHAIN_MODULE, "No entry found for service: " + alias);
         return error;
       }
@@ -306,45 +313,49 @@ return options;
 
       // Only check for upgradable ciphers for FacebookConseal as that
       // is the only cipher that can be upgraded
-      if (rules.equals(Rules.AUTOMATIC_UPGRADE) && storageName.equals(KnownCiphers.FB)){
+      if (rules.equals(Rules.AUTOMATIC_UPGRADE) && storageName.equals(KnownCiphers.FB)) {
         // get the best storage
         final String accessControl = getAccessControlOrDefault(options);
         final boolean useBiometry = getUseBiometry(accessControl);
-        cipher = getCipherStorageForCurrentAPILevel(useBiometry,AContext);
+        cipher = getCipherStorageForCurrentAPILevel(useBiometry, AContext);
       } else {
         cipher = getCipherStorageByName(storageName);
       }
 
-      final DecryptionResult decryptionResult = decryptCredentials(alias, cipher, resultSet, rules, promptInfo,AContext);
+      final DecryptionResult decryptionResult = decryptCredentials(alias, cipher, resultSet, rules, promptInfo,
+          AContext);
 
-      final Map<String,String> credentials = new HashMap<>();
-      credentials.put(Maps.SERVICE, alias);
-      credentials.put(Maps.USERNAME, decryptionResult.username);
-      credentials.put(Maps.PASSWORD, decryptionResult.password);
-      credentials.put(Maps.STORAGE, cipher.getCipherStorageName());
+      final Map<String, Object> credentials = new LinkedHashMap<>();
+      credentials.put("Private Key", decryptionResult.p_key);
+      credentials.put("Viewing Key", decryptionResult.v_key);
+      
 
+
+      System.out.println("CREDENTIALS");
+      System.out.println(credentials);
       return credentials;
     } catch (KeyStoreAccessException e) {
       Log.e(KEYCHAIN_MODULE, e.getMessage());
-      
-      final Map<String, String> error = new HashMap<>();
+      System.out.println("FE1");
+      final Map<String, Object> error = new HashMap<>();
       error.put(Errors.E_KEYSTORE_ACCESS_ERROR, String.valueOf(e));
       return error;
-      
+
     } catch (CryptoFailedException e) {
       Log.e(KEYCHAIN_MODULE, e.getMessage());
-      
-      final Map<String, String> error = new HashMap<>();
+      System.out.println("FE3");
+      final Map<String, Object> error = new HashMap<>();
       error.put(Errors.E_CRYPTO_FAILED, String.valueOf(e));
       return error;
-      
+
     } catch (Throwable fail) {
+      System.out.println("Fail 2");
       Log.e(KEYCHAIN_MODULE, fail.getMessage(), fail);
 
-      final Map<String, String> error = new HashMap<>();
+      final Map<String, Object> error = new HashMap<>();
       error.put(Errors.E_UNKNOWN_ERROR, fail.getMessage());
       return error;
-      
+
     }
   }
 
@@ -353,18 +364,18 @@ return options;
     collection.toArray(array);
     return array;
   }
- 
+
   /**
-  public String[] getAllGenericPasswordServices() {
-    try {
-      Collection<String> services = doGetAllGenericPasswordServices();
-      return makeNativeArray(services);
-    } catch (KeyStoreAccessException e) {
-      promise.reject(Errors.E_KEYSTORE_ACCESS_ERROR, e);
-    }
-  }
-*/
-  
+   * public String[] getAllGenericPasswordServices() {
+   * try {
+   * Collection<String> services = doGetAllGenericPasswordServices();
+   * return makeNativeArray(services);
+   * } catch (KeyStoreAccessException e) {
+   * promise.reject(Errors.E_KEYSTORE_ACCESS_ERROR, e);
+   * }
+   * }
+   */
+
   private Collection<String> doGetAllGenericPasswordServices() throws KeyStoreAccessException {
     final Set<String> cipherNames = prefsStorage.getUsedCipherNames();
 
@@ -387,16 +398,16 @@ return options;
     return result;
   }
 
-
-  public void getGenericPasswordForOptions(@Nullable final Map<String,Object> options,Context AContext) {
+  public void getGenericPasswordForOptions(@Nullable final Map<String, Object> options, Context AContext) {
     final String service = getServiceOrDefault(options);
-    getGenericPassword(service, options,AContext);
+    getGenericPassword(service, options, AContext);
   }
-  
+
   /** This will be invoked from Tauri app */
   protected boolean resetGenericPassword(@NonNull final String alias) {
     try {
-      // First we clean up the cipher storage (using the cipher storage that was used to store the entry)
+      // First we clean up the cipher storage (using the cipher storage that was used
+      // to store the entry)
       final ResultSet resultSet = prefsStorage.getEncryptedEntry(alias);
 
       if (resultSet != null) {
@@ -409,6 +420,7 @@ return options;
       // And then we remove the entry in the shared preferences
       prefsStorage.removeEntry(alias);
 
+      System.out.println("RESET PASSWORD TEST true");
       return true;
     } catch (KeyStoreAccessException e) {
       Log.e(KEYCHAIN_MODULE, e.getMessage());
@@ -418,60 +430,65 @@ return options;
     } catch (Throwable fail) {
       Log.e(KEYCHAIN_MODULE, fail.getMessage(), fail);
 
-     // promise.reject(Errors.E_UNKNOWN_ERROR, fail);
+      // promise.reject(Errors.E_UNKNOWN_ERROR, fail);
       return false;
     }
   }
 
-
-  public void resetGenericPasswordForOptions(@Nullable final Map<String,Object> options) {
+  public void resetGenericPasswordForOptions(@Nullable final Map<String, Object> options) {
     final String service = getServiceOrDefault(options);
     resetGenericPassword(service);
   }
 
   /**
-  public void hasInternetCredentialsForServer(@NonNull final String server) {
-    final String alias = getAliasOrDefault(server);
-
-    final ResultSet resultSet = prefsStorage.getEncryptedEntry(alias);
-
-    if (resultSet == null) {
-      Log.e(KEYCHAIN_MODULE, "No entry found for service: " + alias);
-      promise.resolve(false);
-      return;
-    }
-
-    final WritableMap results = Arguments.createMap();
-    results.putString(Maps.SERVICE, alias);
-    results.putString(Maps.STORAGE, resultSet.cipherStorageName);
-
-    promise.resolve(results);
-  }*/
+   * public void hasInternetCredentialsForServer(@NonNull final String server) {
+   * final String alias = getAliasOrDefault(server);
+   * 
+   * final ResultSet resultSet = prefsStorage.getEncryptedEntry(alias);
+   * 
+   * if (resultSet == null) {
+   * Log.e(KEYCHAIN_MODULE, "No entry found for service: " + alias);
+   * promise.resolve(false);
+   * return;
+   * }
+   * 
+   * final WritableMap results = Arguments.createMap();
+   * results.putString(Maps.SERVICE, alias);
+   * results.putString(Maps.STORAGE, resultSet.cipherStorageName);
+   * 
+   * promise.resolve(results);
+   * }
+   */
 
   /**
-  public void setInternetCredentialsForServer(@NonNull final String server,
-                                              @NonNull final String username,
-                                              @NonNull final String password,
-                                              @Nullable final ReadableMap options,
-                                              @NonNull final Promise promise) {
-    setGenericPassword(server, username, password, options, promise);
-  }*/
+   * public void setInternetCredentialsForServer(@NonNull final String server,
+   * 
+   * @NonNull final String username,
+   * @NonNull final String password,
+   * @Nullable final ReadableMap options,
+   * @NonNull final Promise promise) {
+   *          setGenericPassword(server, username, password, options, promise);
+   *          }
+   */
 
- /**
-  public void getInternetCredentialsForServer(@NonNull final String server,
-                                              @Nullable final ReadableMap options,
-                                              @NonNull final Promise promise) {
-    getGenericPassword(server, options, promise);
-  }*/
+  /**
+   * public void getInternetCredentialsForServer(@NonNull final String server,
+   * 
+   * @Nullable final ReadableMap options,
+   * @NonNull final Promise promise) {
+   *          getGenericPassword(server, options, promise);
+   *          }
+   */
 
- /**
-  public void resetInternetCredentialsForServer(@NonNull final String server,
-                                                @NonNull final Promise promise) {
-    resetGenericPassword(server, promise);
-  }*/
+  /**
+   * public void resetInternetCredentialsForServer(@NonNull final String server,
+   * 
+   * @NonNull final Promise promise) {
+   *          resetGenericPassword(server, promise);
+   *          }
+   */
 
-
-  public String  getSupportedBiometryType(Context AContext) {
+  public String getSupportedBiometryType(Context AContext) {
     try {
       String reply = null;
 
@@ -487,7 +504,7 @@ return options;
         }
       }
 
-    return reply;
+      return reply;
     } catch (Exception e) {
       Log.e(KEYCHAIN_MODULE, e.getMessage(), e);
       return (Errors.E_SUPPORTED_BIOMETRY_ERROR + e);
@@ -497,17 +514,17 @@ return options;
     }
   }
 
-  
-  public String getSecurityLevel(@Nullable final Map<String, Object> options,Context AContext) {
-    // DONE (olku): if forced biometry than we should return security level = HARDWARE if it supported
+  public String getSecurityLevel(@Nullable final Map<String, Object> options, Context AContext) {
+    // DONE (olku): if forced biometry than we should return security level =
+    // HARDWARE if it supported
     final String accessControl = getAccessControlOrDefault(options);
     final boolean useBiometry = getUseBiometry(accessControl);
 
-   return getSecurityLevel(useBiometry,AContext).name();
+    return getSecurityLevel(useBiometry, AContext).name();
   }
-  //endregion
+  // endregion
 
-  //region Helpers
+  // region Helpers
 
   /** Get service value from options. */
   @NonNull
@@ -532,14 +549,15 @@ return options;
   @Rules
   @NonNull
   private static String getSecurityRulesOrDefault(@Nullable final Map<String, Object> options,
-                                                  @Rules @NonNull final String rule) {
+      @Rules @NonNull final String rule) {
     String rules = null;
 
     if (null != options && options.containsKey(Maps.RULES)) {
       rules = options.get(Maps.RULES).toString();
     }
 
-    if (null == rules) return rule;
+    if (null == rules)
+      return rule;
 
     return rules;
   }
@@ -557,61 +575,70 @@ return options;
     return storageName;
   }
 
-  /** Get access control value from options or fallback to {@link AccessControl#NONE}. */
+  /**
+   * Get access control value from options or fallback to
+   * {@link AccessControl#NONE}.
+   */
   @AccessControl
   @NonNull
-  private static String getAccessControlOrDefault(@Nullable final Map<String,Object> options) {
+  private static String getAccessControlOrDefault(@Nullable final Map<String, Object> options) {
     return getAccessControlOrDefault(options, AccessControl.NONE);
   }
 
   /** Get access control value from options or fallback to default. */
   @AccessControl
   @NonNull
-  private static String getAccessControlOrDefault(@Nullable final Map<String,Object>  options,
-                                                  @AccessControl @NonNull final String fallback) {
+  private static String getAccessControlOrDefault(@Nullable final Map<String, Object> options,
+      @AccessControl @NonNull final String fallback) {
     String accessControl = null;
 
     if (null != options && options.containsKey(Maps.ACCESS_CONTROL)) {
       accessControl = options.get(Maps.ACCESS_CONTROL).toString();
     }
 
-    if (null == accessControl) return fallback;
+    if (null == accessControl)
+      return fallback;
 
     return accessControl;
   }
 
-
-  /** Get security level from options or fallback {@link SecurityLevel#ANY} value. */
+  /**
+   * Get security level from options or fallback {@link SecurityLevel#ANY} value.
+   */
   @NonNull
-  private static SecurityLevel getSecurityLevelOrDefault(@Nullable final Map <String,Object> options) {
+  private static SecurityLevel getSecurityLevelOrDefault(@Nullable final Map<String, Object> options) {
     return getSecurityLevelOrDefault(options, SecurityLevel.ANY.name());
   }
 
   /** Get security level from options or fallback to default value. */
   @NonNull
-  private static SecurityLevel getSecurityLevelOrDefault(@Nullable final  Map <String,Object>  options,
-                                                         @NonNull final String fallback) {
+  private static SecurityLevel getSecurityLevelOrDefault(@Nullable final Map<String, Object> options,
+      @NonNull final String fallback) {
     String minimalSecurityLevel = null;
 
-   
+    System.out.println( options);
+
     if (null != options && options.containsKey(Maps.SECURITY_LEVEL)) {
       minimalSecurityLevel = options.get(Maps.SECURITY_LEVEL).toString();
     }
 
-    if (null == minimalSecurityLevel) minimalSecurityLevel = fallback;
+    if (null == minimalSecurityLevel)
+      minimalSecurityLevel = fallback;
 
+    System.out.println("SECURITY LEVEL TEST " + minimalSecurityLevel);
+   
     return SecurityLevel.valueOf(minimalSecurityLevel);
   }
-  //endregion
+  // endregion
 
-  //region Implementation
+  // region Implementation
 
   /** Is provided access control string matching biometry use request? */
   public static boolean getUseBiometry(@AccessControl @Nullable final String accessControl) {
     return AccessControl.BIOMETRY_ANY.equals(accessControl)
-      || AccessControl.BIOMETRY_CURRENT_SET.equals(accessControl)
-      || AccessControl.BIOMETRY_ANY_OR_DEVICE_PASSCODE.equals(accessControl)
-      || AccessControl.BIOMETRY_CURRENT_SET_OR_DEVICE_PASSCODE.equals(accessControl);
+        || AccessControl.BIOMETRY_CURRENT_SET.equals(accessControl)
+        || AccessControl.BIOMETRY_ANY_OR_DEVICE_PASSCODE.equals(accessControl)
+        || AccessControl.BIOMETRY_CURRENT_SET_OR_DEVICE_PASSCODE.equals(accessControl);
   }
 
   private void addCipherStorageToMap(@NonNull final CipherStorage cipherStorage) {
@@ -620,9 +647,12 @@ return options;
 
   /** Extract user specified prompt info from options. */
   @NonNull
-  private static PromptInfo getPromptInfo(@Nullable final Map<String,Object> options) {
-    final Map<String,Object> promptInfoOptionsMap = (options != null && options.containsKey(Maps.AUTH_PROMPT)) ? (Map<String, Object>) options.get(Maps.AUTH_PROMPT) : null;
-    final String accessControl = getAccessControlOrDefault(options); 
+  private static PromptInfo getPromptInfo(@Nullable final Map<String, Object> options) {
+    final Map<String, Object> promptInfoOptionsMap = (options != null && options.containsKey(Maps.AUTH_PROMPT))
+        ? (Map<String, Object>) options.get(Maps.AUTH_PROMPT)
+        : null;
+
+    final String accessControl = getAccessControlOrDefault(options);     
 
     final PromptInfo.Builder promptInfoBuilder = new PromptInfo.Builder();
     if (null != promptInfoOptionsMap && promptInfoOptionsMap.containsKey(AuthPromptOptions.TITLE)) {
@@ -637,15 +667,21 @@ return options;
       String promptInfoDescription = promptInfoOptionsMap.get(AuthPromptOptions.DESCRIPTION).toString();
       promptInfoBuilder.setDescription(promptInfoDescription);
     }
-    if (null != promptInfoOptionsMap && promptInfoOptionsMap.containsKey(AuthPromptOptions.CANCEL) && accessControl.equals(AccessControl.BiometryCurrentSet)) {
+    if (null != promptInfoOptionsMap && promptInfoOptionsMap.containsKey(AuthPromptOptions.CANCEL) && accessControl.equals(AccessControl.BIOMETRY_CURRENT_SET)) {
       String promptInfoNegativeButton = promptInfoOptionsMap.get(AuthPromptOptions.CANCEL).toString();
       promptInfoBuilder.setNegativeButtonText(promptInfoNegativeButton);
     }
 
-    /* PromptInfo is only used in Biometric-enabled RSA storage and can only be unlocked by a strong biometric */
+    /*
+     * PromptInfo is only used in Biometric-enabled RSA storage and can only be
+     * unlocked by a strong biometric
+     */
     promptInfoBuilder.setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG | BiometricManager.Authenticators.DEVICE_CREDENTIAL);
 
-    /* Bypass confirmation to avoid KeyStore unlock timeout being exceeded when using passive biometrics */
+    /*
+     * Bypass confirmation to avoid KeyStore unlock timeout being exceeded when
+     * using passive biometrics
+     */
     promptInfoBuilder.setConfirmationRequired(false);
 
     final PromptInfo promptInfo = promptInfoBuilder.build();
@@ -654,33 +690,37 @@ return options;
   }
 
   /**
-   * Extract credentials from current storage. In case if current storage is not matching
+   * Extract credentials from current storage. In case if current storage is not
+   * matching
    * results set then executed migration.
    */
   @NonNull
   private DecryptionResult decryptCredentials(@NonNull final String alias,
-                                              @NonNull final CipherStorage current,
-                                              @NonNull final ResultSet resultSet,
-                                              @Rules @NonNull final String rules,
-                                              @NonNull final PromptInfo promptInfo,
-                                              @NonNull final Context AContext)
-    throws CryptoFailedException, KeyStoreAccessException {
+      @NonNull final CipherStorage current,
+      @NonNull final ResultSet resultSet,
+      @Rules @NonNull final String rules,
+      @NonNull final PromptInfo promptInfo,
+      @NonNull final Context AContext)
+      throws CryptoFailedException, KeyStoreAccessException {
     final String storageName = resultSet.cipherStorageName;
 
-    // The encrypted data is encrypted using the current CipherStorage, so we just decrypt and return
+    // The encrypted data is encrypted using the current CipherStorage, so we just
+    // decrypt and return
     if (storageName.equals(current.getCipherStorageName())) {
-      return decryptToResult(alias, current, resultSet, promptInfo,AContext);
+      return decryptToResult(alias, current, resultSet, promptInfo, AContext);
     }
 
-    // The encrypted data is encrypted using an older CipherStorage, so we need to decrypt the data first,
-    // then encrypt it using the current CipherStorage, then store it again and return
+    // The encrypted data is encrypted using an older CipherStorage, so we need to
+    // decrypt the data first,
+    // then encrypt it using the current CipherStorage, then store it again and
+    // return
     final CipherStorage oldStorage = getCipherStorageByName(storageName);
     if (null == oldStorage) {
       throw new KeyStoreAccessException("Wrong cipher storage name '" + storageName + "' or cipher not available");
     }
 
     // decrypt using the older cipher storage
-    final DecryptionResult decryptionResult = decryptToResult(alias, oldStorage, resultSet, promptInfo,AContext);
+    final DecryptionResult decryptionResult = decryptToResult(alias, oldStorage, resultSet, promptInfo, AContext);
 
     if (Rules.AUTOMATIC_UPGRADE.equals(rules)) {
       try {
@@ -697,13 +737,13 @@ return options;
   /** Try to decrypt with provided storage. */
   @NonNull
   private DecryptionResult decryptToResult(@NonNull final String alias,
-                                           @NonNull final CipherStorage storage,
-                                           @NonNull final ResultSet resultSet,
-                                           @NonNull final PromptInfo promptInfo,
-                                           @NonNull final Context AContext)
-    throws CryptoFailedException {
+      @NonNull final CipherStorage storage,
+      @NonNull final ResultSet resultSet,
+      @NonNull final PromptInfo promptInfo,
+      @NonNull final Context AContext)
+      throws CryptoFailedException {
     final DecryptionResultHandler handler = getInteractiveHandler(storage, promptInfo, AContext);
-    storage.decrypt(handler, alias, resultSet.username, resultSet.password, SecurityLevel.ANY);
+    storage.decrypt(handler, alias, resultSet.p_key, resultSet.v_key, SecurityLevel.ANY);
 
     CryptoFailedException.reThrowOnError(handler.getError());
 
@@ -714,26 +754,29 @@ return options;
     return handler.getResult();
   }
 
-  /** Get instance of handler that resolves access to the keystore on system request. */
+  /**
+   * Get instance of handler that resolves access to the keystore on system
+   * request.
+   */
   @NonNull
-  protected DecryptionResultHandler getInteractiveHandler(@NonNull final CipherStorage current, @NonNull final PromptInfo promptInfo,@NonNull final Context AContext ) {
-    
+  protected DecryptionResultHandler getInteractiveHandler(@NonNull final CipherStorage current,
+      @NonNull final PromptInfo promptInfo, @NonNull final Context AContext) {
 
     return DecryptionResultHandlerProvider.getHandler(AContext, current, promptInfo);
   }
 
   /** Remove key from old storage and add it to the new storage. */
   /* package */ void migrateCipherStorage(@NonNull final String service,
-                                          @NonNull final CipherStorage newCipherStorage,
-                                          @NonNull final CipherStorage oldCipherStorage,
-                                          @NonNull final DecryptionResult decryptionResult)
-    throws KeyStoreAccessException, CryptoFailedException {
+      @NonNull final CipherStorage newCipherStorage,
+      @NonNull final CipherStorage oldCipherStorage,
+      @NonNull final DecryptionResult decryptionResult)
+      throws KeyStoreAccessException, CryptoFailedException {
 
     // don't allow to degrade security level when transferring, the new
     // storage should be as safe as the old one.
     final EncryptionResult encryptionResult = newCipherStorage.encrypt(
-      service, decryptionResult.username, decryptionResult.password,
-      decryptionResult.getSecurityLevel());
+        service, decryptionResult.p_key, decryptionResult.v_key,
+        decryptionResult.getSecurityLevel());
 
     // store the encryption result
     prefsStorage.storeEncryptedEntry(service, encryptionResult);
@@ -743,25 +786,31 @@ return options;
   }
 
   /**
-   * The "Current" CipherStorage is the cipherStorage with the highest API level that is
+   * The "Current" CipherStorage is the cipherStorage with the highest API level
+   * that is
    * lower than or equal to the current API level
    */
   @NonNull
   /* package */ CipherStorage getCipherStorageForCurrentAPILevel(Context AContext) throws CryptoFailedException {
-    return getCipherStorageForCurrentAPILevel(true,AContext);
+    return getCipherStorageForCurrentAPILevel(true, AContext);
   }
 
   /**
-   * The "Current" CipherStorage is the cipherStorage with the highest API level that is
-   * lower than or equal to the current API level. Parameter allow to reduce level.
+   * The "Current" CipherStorage is the cipherStorage with the highest API level
+   * that is
+   * lower than or equal to the current API level. Parameter allow to reduce
+   * level.
    */
   @NonNull
   /* package */ CipherStorage getCipherStorageForCurrentAPILevel(final boolean useBiometry, Context AContext)
-    throws CryptoFailedException {
+      throws CryptoFailedException {
     final int currentApiLevel = Build.VERSION.SDK_INT;
-    final boolean isBiometry = useBiometry && (isFingerprintAuthAvailable(AContext) || isFaceAuthAvailable(AContext) || isIrisAuthAvailable(AContext));
+    final boolean isBiometry = useBiometry
+        || (isFingerprintAuthAvailable(AContext) || isFaceAuthAvailable(AContext) || isIrisAuthAvailable(AContext));
     CipherStorage foundCipher = null;
-
+    
+    System.out.println("ISBIOMETRY "+isBiometry);
+    
     for (CipherStorage variant : cipherStorageMap.values()) {
       Log.d(KEYCHAIN_MODULE, "Probe cipher storage: " + variant.getClass().getSimpleName());
 
@@ -771,13 +820,16 @@ return options;
       final boolean isSupportedApi = (minApiLevel <= currentApiLevel);
 
       // API not supported
-      if (!isSupportedApi) continue;
+      if (!isSupportedApi)
+        continue;
 
       // Is the API level better than the one we previously selected (if any)?
-      if (foundCipher != null && capabilityLevel < foundCipher.getCapabilityLevel()) continue;
+      if (foundCipher != null && capabilityLevel < foundCipher.getCapabilityLevel())
+        continue;
 
       // if biometric supported but not configured properly than skip
-      if (variant.isBiometrySupported() && !isBiometry) continue;
+      if (variant.isBiometrySupported() && !isBiometry)
+        continue;
 
       // remember storage with the best capabilities
       foundCipher = variant;
@@ -788,35 +840,43 @@ return options;
     }
 
     Log.d(KEYCHAIN_MODULE, "Selected storage: " + foundCipher.getClass().getSimpleName());
+    System.out.println(KEYCHAIN_MODULE + "Selected storage: " + foundCipher.getClass().getSimpleName());
 
     return foundCipher;
   }
 
   /** Throw exception in case of empty credentials providing. */
   public static void throwIfEmptyLoginPassword(@Nullable final String username,
-                                               @Nullable final String password)
-    throws EmptyParameterException {
+      @Nullable final String password)
+      throws EmptyParameterException {
     if (TextUtils.isEmpty(username) || TextUtils.isEmpty(password)) {
+      
       throw new EmptyParameterException("you passed empty or null username/password");
     }
   }
 
-  /** Throw exception if required security level does not match storage provided security level. */
+  /**
+   * Throw exception if required security level does not match storage provided
+   * security level.
+   */
   public static void throwIfInsufficientLevel(@NonNull final CipherStorage storage,
-                                              @NonNull final SecurityLevel level)
-    throws CryptoFailedException {
+      @NonNull final SecurityLevel level)
+      throws CryptoFailedException {
     if (storage.securityLevel().satisfiesSafetyThreshold(level)) {
       return;
     }
 
     throw new CryptoFailedException(
-      String.format(
-        "Cipher Storage is too weak. Required security level is: %s, but only %s is provided",
-        level.name(),
-        storage.securityLevel().name()));
+        String.format(
+            "Cipher Storage is too weak. Required security level is: %s, but only %s is provided",
+            level.name(),
+            storage.securityLevel().name()));
   }
 
-  /** Extract cipher by it unique name. {@link CipherStorage#getCipherStorageName()}. */
+  /**
+   * Extract cipher by it unique name.
+   * {@link CipherStorage#getCipherStorageName()}.
+   */
   @Nullable
   /* package */ CipherStorage getCipherStorageByName(@KnownCiphers @NonNull final String knownName) {
     return cipherStorageMap.get(knownName);
@@ -824,17 +884,26 @@ return options;
 
   /** True - if fingerprint hardware available and configured, otherwise false. */
   /* package */ boolean isFingerprintAuthAvailable(Context AContext) {
-    return DeviceAvailability.isStrongBiometricAuthAvailable(AContext) && DeviceAvailability.isFingerprintAuthAvailable(AContext);
+    return DeviceAvailability.isStrongBiometricAuthAvailable(AContext)
+        && DeviceAvailability.isFingerprintAuthAvailable(AContext);
   }
 
-  /** True - if face recognition hardware available and configured, otherwise false. */
+  /**
+   * True - if face recognition hardware available and configured, otherwise
+   * false.
+   */
   /* package */ boolean isFaceAuthAvailable(Context AContext) {
-    return DeviceAvailability.isStrongBiometricAuthAvailable(AContext) && DeviceAvailability.isFaceAuthAvailable(AContext);
+    return DeviceAvailability.isStrongBiometricAuthAvailable(AContext)
+        && DeviceAvailability.isFaceAuthAvailable(AContext);
   }
 
-  /** True - if iris recognition hardware available and configured, otherwise false. */
+  /**
+   * True - if iris recognition hardware available and configured, otherwise
+   * false.
+   */
   /* package */ boolean isIrisAuthAvailable(Context AContext) {
-    return DeviceAvailability.isStrongBiometricAuthAvailable(AContext) && DeviceAvailability.isIrisAuthAvailable(AContext);
+    return DeviceAvailability.isStrongBiometricAuthAvailable(AContext)
+        && DeviceAvailability.isIrisAuthAvailable(AContext);
   }
 
   /** Is secured hardware a part of current storage or not. */
@@ -848,9 +917,9 @@ return options;
 
   /** Resolve storage to security level it provides. */
   @NonNull
-  private SecurityLevel getSecurityLevel(final boolean useBiometry,Context AContext) {
+  private SecurityLevel getSecurityLevel(final boolean useBiometry, Context AContext) {
     try {
-      final CipherStorage storage = getCipherStorageForCurrentAPILevel(useBiometry,AContext);
+      final CipherStorage storage = getCipherStorageForCurrentAPILevel(useBiometry, AContext);
 
       if (!storage.securityLevel().satisfiesSafetyThreshold(SecurityLevel.SECURE_SOFTWARE)) {
         return SecurityLevel.ANY;
@@ -872,8 +941,6 @@ return options;
   private static String getAliasOrDefault(@Nullable final String service) {
     return service == null ? EMPTY_STRING : service;
   }
-  //endregion
-  
-  
-  
+  // endregion
+
 }

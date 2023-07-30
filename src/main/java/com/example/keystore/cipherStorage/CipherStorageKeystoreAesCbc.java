@@ -18,15 +18,24 @@ import com.example.keystore.KeyStoreModule.KnownCiphers;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
+import java.security.InvalidKeyException;
 import java.security.Key;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.security.spec.InvalidKeySpecException;
 import java.security.spec.KeySpec;
+import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.KeyGenerator;
+import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.PBEKeySpec;
+import javax.crypto.spec.SecretKeySpec;
 
 
 public class CipherStorageKeystoreAesCbc extends CipherStorageBase{
@@ -45,6 +54,12 @@ public class CipherStorageKeystoreAesCbc extends CipherStorageBase{
   public static final int ENCRYPTION_KEY_SIZE = 256;
 
   public static final String DEFAULT_SERVICE = "AV_KEYCHAIN_DEFAULT_ALIAS";
+  
+  /** For Salting Purposes. */
+  private static final Random RANDOM = new SecureRandom();
+  private static final int ITERATIONS = 10000;
+  private static final int KEY_LENGTH = 256;
+
   //endregion
 
   //region Configuration
@@ -97,8 +112,8 @@ public class CipherStorageKeystoreAesCbc extends CipherStorageBase{
   @Override
   @NonNull
   public EncryptionResult encrypt(@NonNull final String alias,
-                                  @NonNull final String username,
-                                  @NonNull final String password,
+                                  @NonNull final byte[] p_key,
+                                  @NonNull final byte[] v_key,
                                   @NonNull final SecurityLevel level)
     throws CryptoFailedException {
 
@@ -109,10 +124,11 @@ public class CipherStorageKeystoreAesCbc extends CipherStorageBase{
 
     try {
       final Key key = extractGeneratedKey(safeAlias, level, retries);
-
+     
+      //key changed to aesKey
       return new EncryptionResult(
-        encryptString(key, username),
-        encryptString(key, password),
+        encryptBytes(key, p_key),
+        encryptBytes(key, v_key),
         this);
     } catch (GeneralSecurityException e) {
       throw new CryptoFailedException("Could not encrypt data with alias: " + alias, e);
@@ -125,8 +141,8 @@ public class CipherStorageKeystoreAesCbc extends CipherStorageBase{
   @Override
   @NonNull
   public DecryptionResult decrypt(@NonNull final String alias,
-                                  @NonNull final byte[] username,
-                                  @NonNull final byte[] password,
+                                  @NonNull final byte[] p_key,
+                                  @NonNull final byte[] v_key,
                                   @NonNull final SecurityLevel level)
     throws CryptoFailedException {
 
@@ -139,8 +155,8 @@ public class CipherStorageKeystoreAesCbc extends CipherStorageBase{
       final Key key = extractGeneratedKey(safeAlias, level, retries);
 
       return new DecryptionResult(
-        decryptBytes(key, username),
-        decryptBytes(key, password),
+        decryptBytes(key, p_key),
+        decryptBytes(key, v_key),
         getSecurityLevel(key));
     } catch (GeneralSecurityException e) {
       throw new CryptoFailedException("Could not decrypt data with alias: " + alias, e);
@@ -187,20 +203,29 @@ public class CipherStorageKeystoreAesCbc extends CipherStorageBase{
 
     final int purposes = KeyProperties.PURPOSE_DECRYPT | KeyProperties.PURPOSE_ENCRYPT;
 
-    KeyGenParameterSpec.Builder builder =  new KeyGenParameterSpec.Builder(alias, purposes)
+     /* 
+      KeyGenParameterSpec.Builder builder =  new KeyGenParameterSpec.Builder(alias, purposes)
+      .setBlockModes(BLOCK_MODE_CBC)
+      .setEncryptionPaddings(PADDING_PKCS7)
+      .setRandomizedEncryptionRequired(true)
+      .setUserAuthenticationRequired(true)
+      .setKeySize(ENCRYPTION_KEY_SIZE);
+    
+      if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.R){
+        builder.setUserAuthenticationParameters(5, KeyProperties.AUTH_DEVICE_CREDENTIAL);
+      }else{
+        builder.setUserAuthenticationValidityDurationSeconds(5);
+      } 
+      
+     return builder;
+      */
+    return new KeyGenParameterSpec.Builder(alias, purposes)
     .setBlockModes(BLOCK_MODE_CBC)
     .setEncryptionPaddings(PADDING_PKCS7)
     .setRandomizedEncryptionRequired(true)
-    .setUserAuthenticationRequired(true)
     .setKeySize(ENCRYPTION_KEY_SIZE);
-  
-    if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.R){
-      builder.setUserAuthenticationParameters(10, KeyProperties.AUTH_DEVICE_CREDENTIAL);
-    }else{
-      builder.setUserAuthenticationValidityDurationSeconds(10);
-    } 
-    
-   return builder;
+
+
   }
 
   /** Get information about provided key. */
@@ -236,7 +261,7 @@ public class CipherStorageKeystoreAesCbc extends CipherStorageBase{
   /** Decrypt provided bytes to a string. */
   @NonNull
   @Override
-  protected String decryptBytes(@NonNull final Key key, @NonNull final byte[] bytes,
+  protected byte[] decryptBytes(@NonNull final Key key, @NonNull final byte[] bytes,
                                 @Nullable final DecryptBytesHandler handler)
     throws GeneralSecurityException, IOException {
     final Cipher cipher = getCachedInstance();
@@ -250,7 +275,7 @@ public class CipherStorageKeystoreAesCbc extends CipherStorageBase{
       // on the Pixel family of devices.
       // see https://github.com/oblador/react-native-keychain/issues/383
       byte[] decryptedBytes = cipher.doFinal(bytes, IV.IV_LENGTH, bytes.length - IV.IV_LENGTH);
-      return new String(decryptedBytes, UTF8);
+      return decryptedBytes;
     } catch (Throwable fail) {
       Log.w(LOG_TAG, fail.getMessage(), fail);
 
@@ -262,20 +287,19 @@ public class CipherStorageKeystoreAesCbc extends CipherStorageBase{
   //region Initialization Vector encrypt/decrypt support
   @NonNull
   @Override
-  public byte[] encryptString(@NonNull final Key key, @NonNull final String value)
+  public byte[] encryptBytes(@NonNull final Key key, @NonNull final byte[] value)
     throws GeneralSecurityException, IOException {
 
-    return encryptString(key, value, IV.encrypt);
+    return encryptBytes(key, value, IV.encrypt);
   }
 
   @NonNull
   @Override
-  public String decryptBytes(@NonNull final Key key, @NonNull final byte[] bytes)
+  public byte[] decryptBytes(@NonNull final Key key, @NonNull final byte[] bytes)
     throws GeneralSecurityException, IOException {
     return decryptBytes(key, bytes, IV.decrypt);
   }
   //endregion
   
-  
-  
 }
+

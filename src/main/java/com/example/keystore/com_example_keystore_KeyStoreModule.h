@@ -10,34 +10,34 @@ extern "C" {
 /*
  * Class:     com_example_keystore_KeyStoreModule
  * Method:    create
- * Signature: (Landroid/content/Context;)Ljava/lang/String;
+ * Signature: (Ljava/lang/String;[B[BLjava/util/Map;Landroid/content/Context;)Ljava/lang/String;
  */
 JNIEXPORT jstring JNICALL Java_com_example_keystore_KeyStoreModule_create
-  (JNIEnv *, jclass, jobject);
+  (JNIEnv *, jclass, jstring, jbyteArray, jbyteArray, jobject, jobject);
 
 /*
  * Class:     com_example_keystore_KeyStoreModule
  * Method:    get
- * Signature: (Landroid/content/Context;)Ljava/lang/String;
+ * Signature: (Ljava/lang/String;Ljava/util/Map;Landroid/content/Context;)Ljava/lang/String;
  */
 JNIEXPORT jstring JNICALL Java_com_example_keystore_KeyStoreModule_get
-  (JNIEnv *, jclass, jobject);
+  (JNIEnv *, jclass, jstring, jobject, jobject);
 
 /*
  * Class:     com_example_keystore_KeyStoreModule
  * Method:    update
- * Signature: (Landroid/content/Context;)Ljava/lang/String;
+ * Signature: (Ljava/lang/String;)Ljava/lang/String;
  */
 JNIEXPORT jstring JNICALL Java_com_example_keystore_KeyStoreModule_update
-  (JNIEnv *, jclass, jobject);
+  (JNIEnv *, jclass, jstring);
 
 /*
  * Class:     com_example_keystore_KeyStoreModule
  * Method:    delete
- * Signature: (Landroid/content/Context;)Ljava/lang/String;
+ * Signature: (Ljava/lang/String;)Ljava/lang/String;
  */
 JNIEXPORT jstring JNICALL Java_com_example_keystore_KeyStoreModule_delete
-  (JNIEnv *, jclass, jobject);
+  (JNIEnv *, jclass, jstring);
 
 #ifdef __cplusplus
 }

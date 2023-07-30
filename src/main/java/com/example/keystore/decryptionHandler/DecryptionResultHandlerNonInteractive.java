@@ -24,6 +24,7 @@ public class DecryptionResultHandlerNonInteractive implements DecryptionResultHa
                         @Nullable final Throwable error) {
     this.result = decryptionResult;
     this.error = error;
+    
   }
 
   @Nullable

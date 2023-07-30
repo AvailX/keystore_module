@@ -43,3 +43,4 @@ public class DecryptionResultHandlerProvider {
     return new DecryptionResultHandlerNonInteractive();
   }
 }
+

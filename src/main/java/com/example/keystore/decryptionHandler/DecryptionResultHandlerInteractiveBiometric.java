@@ -93,8 +93,8 @@ public class DecryptionResultHandlerInteractiveBiometric extends BiometricPrompt
       if (null == context) throw new NullPointerException("Decrypt context is not assigned yet.");
 
       final CipherStorage.DecryptionResult decrypted = new CipherStorage.DecryptionResult(
-        storage.decryptBytes(context.key, context.username),
-        storage.decryptBytes(context.key, context.password)
+        storage.decryptBytes(context.key, context.p_key),
+        storage.decryptBytes(context.key, context.v_key)
       );
 
       onDecrypt(decrypted, null);
@@ -150,4 +150,5 @@ public class DecryptionResultHandlerInteractiveBiometric extends BiometricPrompt
     Log.i(LOG_TAG, "unblocking thread.");
   }
 }
+
 

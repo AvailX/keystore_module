@@ -323,15 +323,15 @@ abstract public class CipherStorageBase implements CipherStorage{
 
   /** Default encryption with cipher without initialization vector. */
   @NonNull
-  public byte[] encryptString(@NonNull final Key key, @NonNull final String value)
+  public byte[] encryptBytes(@NonNull final Key key, @NonNull final byte[] value)
     throws IOException, GeneralSecurityException {
 
-    return encryptString(key, value, Defaults.encrypt);
+    return encryptBytes(key, value, Defaults.encrypt);
   }
 
   /** Default decryption with cipher without initialization vector. */
   @NonNull
-  public String decryptBytes(@NonNull final Key key, @NonNull final byte[] bytes)
+  public byte[] decryptBytes(@NonNull final Key key, @NonNull final byte[] bytes)
     throws IOException, GeneralSecurityException {
 
     return decryptBytes(key, bytes, Defaults.decrypt);
@@ -339,7 +339,7 @@ abstract public class CipherStorageBase implements CipherStorage{
 
   /** Encrypt provided string value. */
   @NonNull
-  protected byte[] encryptString(@NonNull final Key key, @NonNull final String value,
+  protected byte[] encryptBytes(@NonNull final Key key, @NonNull final byte [] value,
                                  @Nullable final EncryptStringHandler handler)
     throws IOException, GeneralSecurityException {
 
@@ -355,7 +355,7 @@ abstract public class CipherStorageBase implements CipherStorage{
       }
 
       try (final CipherOutputStream encrypt = new CipherOutputStream(output, cipher)) {
-        encrypt.write(value.getBytes(UTF8));
+        encrypt.write(value);
       }
 
       return output.toByteArray();
@@ -368,7 +368,7 @@ abstract public class CipherStorageBase implements CipherStorage{
 
   /** Decrypt provided bytes to a string. */
   @NonNull
-  protected String decryptBytes(@NonNull final Key key, @NonNull final byte[] bytes,
+  protected byte[] decryptBytes(@NonNull final Key key, @NonNull final byte[] bytes,
                                 @Nullable final DecryptBytesHandler handler)
     throws GeneralSecurityException, IOException {
     final Cipher cipher = getCachedInstance();
@@ -386,7 +386,7 @@ abstract public class CipherStorageBase implements CipherStorage{
         copy(decrypt, output);
       }
 
-      return new String(output.toByteArray(), UTF8);
+      return output.toByteArray();
     } catch (Throwable fail) {
       Log.w(LOG_TAG, fail.getMessage(), fail);
 

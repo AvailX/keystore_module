@@ -57,25 +57,25 @@ public class PrefsStorage {
   }
 
   public void removeEntry(@NonNull final String service) {
-    final String keyForUsername = getKeyForUsername(service);
-    final String keyForPassword = getKeyForPassword(service);
+    final String keyForPKey = getKeyForPKey(service);
+    final String keyForVKey = getKeyForVKey(service);
     final String keyForCipherStorage = getKeyForCipherStorage(service);
 
     prefs.edit()
-      .remove(keyForUsername)
-      .remove(keyForPassword)
+      .remove(keyForPKey)
+      .remove(keyForVKey)
       .remove(keyForCipherStorage)
       .apply();
   }
 
   public void storeEncryptedEntry(@NonNull final String service, @NonNull final EncryptionResult encryptionResult) {
-    final String keyForUsername = getKeyForUsername(service);
-    final String keyForPassword = getKeyForPassword(service);
+    final String keyForUsername = getKeyForPKey(service);
+    final String keyForPassword = getKeyForVKey(service);
     final String keyForCipherStorage = getKeyForCipherStorage(service);
 
     prefs.edit()
-      .putString(keyForUsername, Base64.encodeToString(encryptionResult.username, Base64.DEFAULT))
-      .putString(keyForPassword, Base64.encodeToString(encryptionResult.password, Base64.DEFAULT))
+      .putString(keyForUsername, Base64.encodeToString(encryptionResult.p_key, Base64.DEFAULT))
+      .putString(keyForPassword, Base64.encodeToString(encryptionResult.v_key, Base64.DEFAULT))
       .putString(keyForCipherStorage, encryptionResult.cipherName)
       .apply();
   }
@@ -105,14 +105,14 @@ public class PrefsStorage {
 
   @Nullable
   private byte[] getBytesForUsername(@NonNull final String service) {
-    final String key = getKeyForUsername(service);
+    final String key = getKeyForPKey(service);
 
     return getBytes(key);
   }
 
   @Nullable
   private byte[] getBytesForPassword(@NonNull final String service) {
-    String key = getKeyForPassword(service);
+    String key = getKeyForVKey(service);
     return getBytes(key);
   }
 
@@ -124,13 +124,13 @@ public class PrefsStorage {
   }
 
   @NonNull
-  public static String getKeyForUsername(@NonNull final String service) {
-    return service + ":" + "u";
+  public static String getKeyForPKey(@NonNull final String service) {
+    return service + ":" + "p";
   }
 
   @NonNull
-  public static String getKeyForPassword(@NonNull final String service) {
-    return service + ":" + "p";
+  public static String getKeyForVKey(@NonNull final String service) {
+    return service + ":" + "v";
   }
 
   @NonNull
