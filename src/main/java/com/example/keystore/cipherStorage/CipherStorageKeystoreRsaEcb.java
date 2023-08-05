@@ -89,11 +89,13 @@ public class CipherStorageKeystoreRsaEcb extends CipherStorageBase{
   public DecryptionResult decrypt(@NonNull String alias,
                                   @NonNull byte[] p_key,
                                   @NonNull byte[] v_key,
-                                  @NonNull final SecurityLevel level)
+                                  @NonNull final SecurityLevel level,
+                                  @NonNull final boolean key_type)
+    
     throws CryptoFailedException {
 
     final DecryptionResultHandlerNonInteractive handler = new DecryptionResultHandlerNonInteractive();
-    decrypt(handler, alias, p_key, v_key, level);
+    decrypt(handler, alias, p_key, v_key, level, key_type);
 
     CryptoFailedException.reThrowOnError(handler.getError());
 
@@ -110,7 +112,8 @@ public class CipherStorageKeystoreRsaEcb extends CipherStorageBase{
                       @NonNull String alias,
                       @NonNull byte[] p_key,
                       @NonNull byte[] v_key,
-                      @NonNull final SecurityLevel level)
+                      @NonNull final SecurityLevel level,
+                      @NonNull final boolean key_type)
     throws CryptoFailedException {
 
     throwIfInsufficientLevel(level);
@@ -124,13 +127,25 @@ public class CipherStorageKeystoreRsaEcb extends CipherStorageBase{
     try {
       // key is always NOT NULL otherwise GeneralSecurityException raised
       key = extractGeneratedKey(safeAlias, level, retries);
+       
+      if(key_type){
+        final DecryptionResult results = new DecryptionResult(
+          decryptBytes(key, p_key),
+          new byte[0]
+        );
 
-      final DecryptionResult results = new DecryptionResult(
-        decryptBytes(key, p_key),
-        decryptBytes(key, v_key)
-      );
+        handler.onDecrypt(results, null);
+        
+      }else{
+        final DecryptionResult results = new DecryptionResult(
+          new byte[0],
+          decryptBytes(key, v_key)
+        );
 
-      handler.onDecrypt(results, null);
+        handler.onDecrypt(results, null);
+      }
+      
+    
     } catch (final UserNotAuthenticatedException ex) {
       Log.d(LOG_TAG, "Unlock of keystore is needed. Error: " + ex.getMessage(), ex);
 
@@ -242,7 +257,7 @@ public class CipherStorageKeystoreRsaEcb extends CipherStorageBase{
       .setKeySize(keySize);
     
       if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.R){
-        builder.setUserAuthenticationParameters(5, KeyProperties.AUTH_BIOMETRIC_STRONG | KeyProperties.AUTH_DEVICE_CREDENTIAL);
+        builder.setUserAuthenticationParameters(5, KeyProperties.AUTH_BIOMETRIC_STRONG);
       }else{
         builder.setUserAuthenticationValidityDurationSeconds(5);
       } 
@@ -280,4 +295,5 @@ public class CipherStorageKeystoreRsaEcb extends CipherStorageBase{
 
   //endregion
   
+
 }

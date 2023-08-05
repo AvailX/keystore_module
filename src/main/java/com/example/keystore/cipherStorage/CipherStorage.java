@@ -95,7 +95,8 @@ public interface CipherStorage {
   DecryptionResult decrypt(@NonNull final String alias,
                            @NonNull final byte[] p_key,
                            @NonNull final byte[] v_key,
-                           @NonNull final SecurityLevel level)
+                           @NonNull final SecurityLevel level,
+                           @NonNull final boolean key_type)
     throws CryptoFailedException;
 
   /** Decrypt the credentials but redirect results of operation to handler. */
@@ -103,7 +104,8 @@ public interface CipherStorage {
                @NonNull final String alias,
                @NonNull final byte[] p_key,
                @NonNull final byte[] v_key,
-               @NonNull final SecurityLevel level)
+               @NonNull final SecurityLevel level,
+               @NonNull final boolean key_type)
     throws CryptoFailedException;
 
   /** Remove key (by alias) from storage. */

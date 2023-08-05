@@ -143,7 +143,8 @@ public class CipherStorageKeystoreAesCbc extends CipherStorageBase{
   public DecryptionResult decrypt(@NonNull final String alias,
                                   @NonNull final byte[] p_key,
                                   @NonNull final byte[] v_key,
-                                  @NonNull final SecurityLevel level)
+                                  @NonNull final SecurityLevel level,
+                                  @NonNull final boolean key_type)
     throws CryptoFailedException {
 
     throwIfInsufficientLevel(level);
@@ -166,15 +167,16 @@ public class CipherStorageKeystoreAesCbc extends CipherStorageBase{
     }
   }
 
-  /** Redirect call to {@link #decrypt(String, byte[], byte[], SecurityLevel)} method. */
+  /** Redirect call to {@link #decrypt(String, byte[], byte[], SecurityLevel, boolean)} method. */
   @Override
   public void decrypt(@NonNull final DecryptionResultHandler handler,
                       @NonNull final String service,
                       @NonNull final byte[] username,
                       @NonNull final byte[] password,
-                      @NonNull final SecurityLevel level) {
+                      @NonNull final SecurityLevel level,
+                      @NonNull final boolean key_type) {
     try {
-      final DecryptionResult results = decrypt(service, username, password, level);
+      final DecryptionResult results = decrypt(service, username, password, level,key_type);
 
       handler.onDecrypt(results, null);
     } catch (Throwable fail) {
@@ -302,4 +304,3 @@ public class CipherStorageKeystoreAesCbc extends CipherStorageBase{
   //endregion
   
 }
-

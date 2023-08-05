@@ -45,7 +45,7 @@ public class KeyStoreModule {
       @NonNull final Context AContext);
 
   private static native String get(@NonNull final String alias,
-      @Nullable final Map<String, Object> options, @NonNull final Context AContext);
+      @Nullable final Map<String, Object> options, @NonNull final Context AContext, @NonNull final String key_type);
 
   private static native String update(@NonNull final String alias);
 
@@ -212,6 +212,8 @@ public class KeyStoreModule {
 
   }
 
+  
+
   // region Tauri Methods
   /** This will be invoked from Tauri app */
   protected Map<String, String> setGenericPassword(@NonNull final String alias,
@@ -293,10 +295,10 @@ public class KeyStoreModule {
 
   /** This will be invoked from Tauri app */
   protected Map<String, Object> getGenericPassword(@NonNull final String alias,
-      @Nullable final Map<String, Object> options, Context AContext) {
+      @Nullable final Map<String, Object> options, Context AContext,@NonNull final String key_type) {
     try {
       final ResultSet resultSet = prefsStorage.getEncryptedEntry(alias);
-
+      System.out.println(key_type);
       if (resultSet == null) {
         Log.e(KEYCHAIN_MODULE, "No entry found for service: " + alias);
 
@@ -321,15 +323,19 @@ public class KeyStoreModule {
       } else {
         cipher = getCipherStorageByName(storageName);
       }
-
-      final DecryptionResult decryptionResult = decryptCredentials(alias, cipher, resultSet, rules, promptInfo,
-          AContext);
-
-      final Map<String, Object> credentials = new LinkedHashMap<>();
-      credentials.put("Private Key", decryptionResult.p_key);
-      credentials.put("Viewing Key", decryptionResult.v_key);
       
-
+       final Map<String, Object> credentials = new LinkedHashMap<>();
+      if("private".equals(key_type)){
+        System.out.println("PRIVATE");
+      final DecryptionResult decryptionResult = decryptCredentials(alias, cipher, resultSet, rules, promptInfo,
+                AContext, true);
+      credentials.put("Private Key", decryptionResult.p_key);
+      }else if ("viewing".equals(key_type)){
+        System.out.println("VIEWING");
+       final DecryptionResult decryptionResult = decryptCredentials(alias, cipher, resultSet, rules, promptInfo,
+          AContext, false);
+       credentials.put("Viewing Key", decryptionResult.v_key);
+      }
 
       System.out.println("CREDENTIALS");
       System.out.println(credentials);
@@ -398,9 +404,9 @@ public class KeyStoreModule {
     return result;
   }
 
-  public void getGenericPasswordForOptions(@Nullable final Map<String, Object> options, Context AContext) {
+  public void getGenericPasswordForOptions(@Nullable final Map<String, Object> options, Context AContext, @NonNull final String key_type) {
     final String service = getServiceOrDefault(options);
-    getGenericPassword(service, options, AContext);
+    getGenericPassword(service, options, AContext,key_type);
   }
 
   /** This will be invoked from Tauri app */
@@ -678,7 +684,7 @@ public class KeyStoreModule {
      */
 
      if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.R){
-      promptInfoBuilder.setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG | BiometricManager.Authenticators.DEVICE_CREDENTIAL);
+      promptInfoBuilder.setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG);
      }else if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.P){
       promptInfoBuilder.setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG);
      }else{
@@ -707,14 +713,15 @@ public class KeyStoreModule {
       @NonNull final ResultSet resultSet,
       @Rules @NonNull final String rules,
       @NonNull final PromptInfo promptInfo,
-      @NonNull final Context AContext)
+      @NonNull final Context AContext,
+      @NonNull final boolean key_type)
       throws CryptoFailedException, KeyStoreAccessException {
     final String storageName = resultSet.cipherStorageName;
 
     // The encrypted data is encrypted using the current CipherStorage, so we just
     // decrypt and return
     if (storageName.equals(current.getCipherStorageName())) {
-      return decryptToResult(alias, current, resultSet, promptInfo, AContext);
+      return decryptToResult(alias, current, resultSet, promptInfo, AContext, key_type);
     }
 
     // The encrypted data is encrypted using an older CipherStorage, so we need to
@@ -727,7 +734,7 @@ public class KeyStoreModule {
     }
 
     // decrypt using the older cipher storage
-    final DecryptionResult decryptionResult = decryptToResult(alias, oldStorage, resultSet, promptInfo, AContext);
+    final DecryptionResult decryptionResult = decryptToResult(alias, oldStorage, resultSet, promptInfo, AContext, key_type);
 
     if (Rules.AUTOMATIC_UPGRADE.equals(rules)) {
       try {
@@ -747,10 +754,11 @@ public class KeyStoreModule {
       @NonNull final CipherStorage storage,
       @NonNull final ResultSet resultSet,
       @NonNull final PromptInfo promptInfo,
-      @NonNull final Context AContext)
+      @NonNull final Context AContext,
+      @NonNull final boolean key_type)
       throws CryptoFailedException {
     final DecryptionResultHandler handler = getInteractiveHandler(storage, promptInfo, AContext);
-    storage.decrypt(handler, alias, resultSet.p_key, resultSet.v_key, SecurityLevel.ANY);
+    storage.decrypt(handler, alias, resultSet.p_key, resultSet.v_key, SecurityLevel.ANY, key_type);
 
     CryptoFailedException.reThrowOnError(handler.getError());
 

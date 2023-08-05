@@ -99,7 +99,8 @@ public class CipherStorageFacebookConceal extends CipherStorageBase {
   public DecryptionResult decrypt(@NonNull final String alias,
                                   @NonNull final byte[] p_key,
                                   @NonNull final byte[] v_key,
-                                  @NonNull final SecurityLevel level)
+                                  @NonNull final SecurityLevel level,
+                                  @NonNull final boolean key_type)
     throws CryptoFailedException {
 
     throwIfInsufficientLevel(level);
@@ -121,16 +122,17 @@ public class CipherStorageFacebookConceal extends CipherStorageBase {
     }
   }
 
-  /** redirect call to default {@link #decrypt(String, byte[], byte[], SecurityLevel)} method. */
+  /** redirect call to default {@link #decrypt(String, byte[], byte[], SecurityLevel, boolean)} method. */
   @Override
   public void decrypt(@NonNull DecryptionResultHandler handler,
                       @NonNull String service,
                       @NonNull byte[] p_key,
                       @NonNull byte[] v_key,
-                      @NonNull final SecurityLevel level) {
+                      @NonNull final SecurityLevel level,
+                      @NonNull final boolean key_type) {
 
     try {
-      final DecryptionResult results = decrypt(service, p_key, v_key, level);
+      final DecryptionResult results = decrypt(service, p_key, v_key, level,key_type);
 
       handler.onDecrypt(results, null);
     } catch (Throwable fail) {
@@ -212,4 +214,3 @@ public class CipherStorageFacebookConceal extends CipherStorageBase {
   }
   //endregion
 }
-
