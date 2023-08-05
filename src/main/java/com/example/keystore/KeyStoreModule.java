@@ -676,7 +676,14 @@ public class KeyStoreModule {
      * PromptInfo is only used in Biometric-enabled RSA storage and can only be
      * unlocked by a strong biometric
      */
-    promptInfoBuilder.setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG | BiometricManager.Authenticators.DEVICE_CREDENTIAL);
+
+     if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.R){
+      promptInfoBuilder.setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG | BiometricManager.Authenticators.DEVICE_CREDENTIAL);
+     }else if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.P){
+      promptInfoBuilder.setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG);
+     }else{
+      promptInfoBuilder.setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK);
+     }
 
     /*
      * Bypass confirmation to avoid KeyStore unlock timeout being exceeded when
