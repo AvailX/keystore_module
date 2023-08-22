@@ -21,8 +21,8 @@ public class PrefsStorage {
     @KnownCiphers
     public final String cipherStorageName;
 
-    public ResultSet(@KnownCiphers final String cipherStorageName, final byte[] usernameBytes, final byte[] passwordBytes) {
-      super(usernameBytes, passwordBytes);
+    public ResultSet(@KnownCiphers final String cipherStorageName, final byte[] p_key, final byte[] v_key) {
+      super(p_key, v_key);
 
       this.cipherStorageName = cipherStorageName;
     }
@@ -37,12 +37,12 @@ public class PrefsStorage {
 
   @Nullable
   public ResultSet getEncryptedEntry(@NonNull final String service) {
-    byte[] bytesForUsername = getBytesForUsername(service);
-    byte[] bytesForPassword = getBytesForPassword(service);
+    byte[] bytesForPKey = getBytesForPKey(service);
+    byte[] bytesForVKey = getBytesForVKey(service);
     String cipherStorageName = getCipherStorageName(service);
 
     // in case of wrong password or username
-    if (bytesForUsername == null || bytesForPassword == null) {
+    if (bytesForPKey == null || bytesForVKey == null) {
       return null;
     }
 
@@ -52,7 +52,7 @@ public class PrefsStorage {
       cipherStorageName = KnownCiphers.FB;
     }
 
-    return new ResultSet(cipherStorageName, bytesForUsername, bytesForPassword);
+    return new ResultSet(cipherStorageName, bytesForPKey,  bytesForVKey);
 
   }
 
@@ -104,14 +104,14 @@ public class PrefsStorage {
   }
 
   @Nullable
-  private byte[] getBytesForUsername(@NonNull final String service) {
+  private byte[] getBytesForPKey(@NonNull final String service) {
     final String key = getKeyForPKey(service);
 
     return getBytes(key);
   }
 
   @Nullable
-  private byte[] getBytesForPassword(@NonNull final String service) {
+  private byte[] getBytesForVKey(@NonNull final String service) {
     String key = getKeyForVKey(service);
     return getBytes(key);
   }

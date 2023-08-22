@@ -127,32 +127,36 @@ public class CipherStorageKeystoreRsaEcb extends CipherStorageBase{
     try {
       // key is always NOT NULL otherwise GeneralSecurityException raised
       key = extractGeneratedKey(safeAlias, level, retries);
-       
+
+      final DecryptionResult results;
       if(key_type){
-        final DecryptionResult results = new DecryptionResult(
+        results = new DecryptionResult(
           decryptBytes(key, p_key),
           new byte[0]
         );
 
-        handler.onDecrypt(results, null);
-        
       }else{
-        final DecryptionResult results = new DecryptionResult(
-          new byte[0],
+        results = new DecryptionResult(
+          new byte[0] ,
           decryptBytes(key, v_key)
         );
 
-        handler.onDecrypt(results, null);
       }
       
-    
+      handler.onDecrypt(results, null);
+
+
     } catch (final UserNotAuthenticatedException ex) {
       Log.d(LOG_TAG, "Unlock of keystore is needed. Error: " + ex.getMessage(), ex);
-
       // expected that KEY instance is extracted and we caught exception on decryptBytes operation
-      @SuppressWarnings("ConstantConditions") final DecryptionContext context =
-        new DecryptionContext(safeAlias, key, p_key, v_key);
-
+      @SuppressWarnings("ConstantConditions") 
+      final DecryptionContext context;
+      if(key_type) {
+        context = new DecryptionContext(safeAlias, key, p_key, new byte[0]);
+      }else{
+       
+        context = new DecryptionContext(safeAlias, key, new byte[0], v_key);
+      }
       handler.askAccessPermissions(context);
     } catch (final Throwable fail) {
       // any other exception treated as a failure
@@ -295,5 +299,4 @@ public class CipherStorageKeystoreRsaEcb extends CipherStorageBase{
 
   //endregion
   
-
 }

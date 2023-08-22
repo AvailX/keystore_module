@@ -68,8 +68,8 @@ public interface CipherStorage {
 
     public DecryptionContext(@NonNull final String keyAlias,
                              @NonNull final Key key,
-                             @NonNull final byte[] v_key,
-                             @NonNull final byte[] p_key) {
+                             @NonNull final byte[] p_key,
+                             @NonNull final byte[] v_key) {
       super(p_key, v_key);
       this.keyAlias = keyAlias;
       this.key = key;

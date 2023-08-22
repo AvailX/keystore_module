@@ -325,16 +325,20 @@ public class KeyStoreModule {
       }
       
        final Map<String, Object> credentials = new LinkedHashMap<>();
-      if("private".equals(key_type)){
+      if("avl-p".equals(key_type)){
         System.out.println("PRIVATE");
       final DecryptionResult decryptionResult = decryptCredentials(alias, cipher, resultSet, rules, promptInfo,
                 AContext, true);
       credentials.put("Private Key", decryptionResult.p_key);
-      }else if ("viewing".equals(key_type)){
+      credentials.put("Viewing Key", new byte[0]);
+      }else if ("avl-v".equals(key_type)){
         System.out.println("VIEWING");
        final DecryptionResult decryptionResult = decryptCredentials(alias, cipher, resultSet, rules, promptInfo,
           AContext, false);
+        
+        credentials.put("Private Key", decryptionResult.p_key);
        credentials.put("Viewing Key", decryptionResult.v_key);
+
       }
 
       System.out.println("CREDENTIALS");
@@ -758,6 +762,8 @@ public class KeyStoreModule {
       @NonNull final boolean key_type)
       throws CryptoFailedException {
     final DecryptionResultHandler handler = getInteractiveHandler(storage, promptInfo, AContext);
+    
+    
     storage.decrypt(handler, alias, resultSet.p_key, resultSet.v_key, SecurityLevel.ANY, key_type);
 
     CryptoFailedException.reThrowOnError(handler.getError());
@@ -959,3 +965,4 @@ public class KeyStoreModule {
   // endregion
 
 }
+

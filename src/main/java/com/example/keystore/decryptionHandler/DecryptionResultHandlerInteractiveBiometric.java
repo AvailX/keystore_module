@@ -16,6 +16,7 @@ import com.example.keystore.cipherStorage.CipherStorage.DecryptionContext;
 import com.example.keystore.cipherStorage.CipherStorageBase;
 import com.example.keystore.exceptions.CryptoFailedException;
 
+import java.util.Arrays;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
@@ -91,12 +92,20 @@ public class DecryptionResultHandlerInteractiveBiometric extends BiometricPrompt
   public void onAuthenticationSucceeded(@NonNull final BiometricPrompt.AuthenticationResult result) {
     try {
       if (null == context) throw new NullPointerException("Decrypt context is not assigned yet.");
-
-      final CipherStorage.DecryptionResult decrypted = new CipherStorage.DecryptionResult(
-        storage.decryptBytes(context.key, context.p_key),
-        storage.decryptBytes(context.key, context.v_key)
-      );
-
+      System.out.println("Running");
+      final CipherStorage.DecryptionResult decrypted;
+      byte[] check = new byte[0];
+      if (context.p_key.length == check.length) {
+        System.out.println("RunningX");
+       decrypted = new CipherStorage.DecryptionResult(
+          new byte[0],
+          storage.decryptBytes(context.key, context.v_key));
+      }else{
+        System.out.println("RunningY");
+        decrypted = new CipherStorage.DecryptionResult(
+          storage.decryptBytes(context.key, context.p_key),
+          new byte[0]);
+      }
       onDecrypt(decrypted, null);
     } catch (Throwable fail) {
       onDecrypt(null, fail);
@@ -150,5 +159,3 @@ public class DecryptionResultHandlerInteractiveBiometric extends BiometricPrompt
     Log.i(LOG_TAG, "unblocking thread.");
   }
 }
-
-
