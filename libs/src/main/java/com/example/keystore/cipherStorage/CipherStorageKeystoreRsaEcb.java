@@ -127,19 +127,18 @@ public class CipherStorageKeystoreRsaEcb extends CipherStorageBase{
     try {
       // key is always NOT NULL otherwise GeneralSecurityException raised
       key = extractGeneratedKey(safeAlias, level, retries);
-      // contexts are switched in construction?
-      // TODO must fix and make clear 
+
       final DecryptionResult results;
       if(key_type){
         results = new DecryptionResult(
-          decryptBytes(key, v_key),
+          decryptBytes(key, p_key),
           new byte[0]
         );
 
       }else{
         results = new DecryptionResult(
           new byte[0] ,
-          decryptBytes(key, p_key)
+          decryptBytes(key, v_key)
         );
 
       }
