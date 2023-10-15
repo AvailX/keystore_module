@@ -5,6 +5,7 @@ import android.annotation.TargetApi;
 import android.app.KeyguardManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.hardware.fingerprint.FingerprintManager;
 import android.os.Build;
 
 import androidx.annotation.NonNull;
@@ -23,6 +24,17 @@ import static androidx.biometric.BiometricManager.BIOMETRIC_SUCCESS;
     public static boolean isFingerprintAuthAvailable(@NonNull final Context context) {
       return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_FINGERPRINT);
     }
+
+    public static boolean isFingerprintEnabled(@NonNull final Context context){
+      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+        return false;
+      }
+
+      final FingerprintManager fm =
+        (FingerprintManager) context.getSystemService(Context.FINGERPRINT_SERVICE);
+      return fm.isHardwareDetected() && fm.hasEnrolledFingerprints();
+    }
+
 
     public static boolean isFaceAuthAvailable(@NonNull final Context context) {
       return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_FACE);

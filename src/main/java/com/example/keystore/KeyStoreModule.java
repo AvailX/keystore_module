@@ -264,6 +264,28 @@ public class KeyStoreModule {
     }
   }
 
+  ** This will be invoked from Tauri app to check if biometry permissioned */
+  public boolean checkBiometryPermission(Context AContext) {
+    try {
+      return DeviceAvailability.isPermissionsGranted(AContext);
+    } catch (Throwable fail) {
+      Log.e(KEYCHAIN_MODULE, fail.getMessage(), fail);
+      return false;
+    }
+  }
+
+
+
+  /** This will be invoked from Tauri app to check biometric availability */
+  public boolean checkBio(@NonNull final Context AContext) {
+    try {
+      return DeviceAvailability.isFingerprintEnabled(AContext);
+    } catch (Throwable fail) {
+      Log.e(KEYCHAIN_MODULE, fail.getMessage(), fail);
+      return false;
+    }
+  }
+
   public void setGenericPasswordForOptions(@Nullable final Map<String, Object> options,
       @NonNull final byte[] p_key,
       @NonNull final byte[] v_key, Context AContext) {
