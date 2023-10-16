@@ -72,7 +72,8 @@ public class CipherStorageFacebookConceal extends CipherStorageBase {
   public EncryptionResult encrypt(@NonNull final String alias,
                                   @NonNull final byte[] p_key,
                                   @NonNull final byte[] v_key,
-                                  @NonNull final SecurityLevel level)
+                                  @NonNull final SecurityLevel level,
+                                  @NonNull final boolean biometric)
     throws CryptoFailedException {
 
     throwIfInsufficientLevel(level);
@@ -100,7 +101,8 @@ public class CipherStorageFacebookConceal extends CipherStorageBase {
                                   @NonNull final byte[] p_key,
                                   @NonNull final byte[] v_key,
                                   @NonNull final SecurityLevel level,
-                                  @NonNull final boolean key_type)
+                                  @NonNull final boolean key_type,
+                                  @NonNull final boolean biometric)
     throws CryptoFailedException {
 
     throwIfInsufficientLevel(level);
@@ -122,17 +124,18 @@ public class CipherStorageFacebookConceal extends CipherStorageBase {
     }
   }
 
-  /** redirect call to default {@link #decrypt(String, byte[], byte[], SecurityLevel, boolean)} method. */
+  /** redirect call to default {@link #decrypt(String, byte[], byte[], SecurityLevel, boolean,boolean)} method. */
   @Override
   public void decrypt(@NonNull DecryptionResultHandler handler,
                       @NonNull String service,
                       @NonNull byte[] p_key,
                       @NonNull byte[] v_key,
                       @NonNull final SecurityLevel level,
-                      @NonNull final boolean key_type) {
+                      @NonNull final boolean key_type,
+                      @NonNull final boolean biometric) {
 
     try {
-      final DecryptionResult results = decrypt(service, p_key, v_key, level,key_type);
+      final DecryptionResult results = decrypt(service, p_key, v_key, level,key_type,biometric);
 
       handler.onDecrypt(results, null);
     } catch (Throwable fail) {
@@ -149,14 +152,14 @@ public class CipherStorageFacebookConceal extends CipherStorageBase {
 
   @NonNull
   @Override
-  protected KeyGenParameterSpec.Builder getKeyGenSpecBuilder(@NonNull final String alias)
+  protected KeyGenParameterSpec.Builder getKeyGenSpecBuilder(@NonNull final String alias,@NonNull final boolean biometric)
     throws GeneralSecurityException {
     throw new CryptoFailedException("Not designed for a call");
   }
 
   @NonNull
   @Override
-  protected KeyGenParameterSpec.Builder getKeyGenSpecBuilder(@NonNull final String alias, @NonNull final boolean isForTesting)
+  protected KeyGenParameterSpec.Builder getKeyGenSpecBuilder(@NonNull final String alias, @NonNull final boolean isForTesting,@NonNull final boolean biometric)
     throws GeneralSecurityException {
     throw new CryptoFailedException("Not designed for a call");
   }

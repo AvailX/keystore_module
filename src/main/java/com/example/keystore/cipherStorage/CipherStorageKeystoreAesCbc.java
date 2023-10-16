@@ -114,7 +114,8 @@ public class CipherStorageKeystoreAesCbc extends CipherStorageBase{
   public EncryptionResult encrypt(@NonNull final String alias,
                                   @NonNull final byte[] p_key,
                                   @NonNull final byte[] v_key,
-                                  @NonNull final SecurityLevel level)
+                                  @NonNull final SecurityLevel level,
+                                  @NonNull final boolean biometric)
     throws CryptoFailedException {
 
     throwIfInsufficientLevel(level);
@@ -123,7 +124,7 @@ public class CipherStorageKeystoreAesCbc extends CipherStorageBase{
     final AtomicInteger retries = new AtomicInteger(1);
 
     try {
-      final Key key = extractGeneratedKey(safeAlias, level, retries);
+      final Key key = extractGeneratedKey(safeAlias, level, retries,biometric);
      
       //key changed to aesKey
       return new EncryptionResult(
@@ -144,7 +145,8 @@ public class CipherStorageKeystoreAesCbc extends CipherStorageBase{
                                   @NonNull final byte[] p_key,
                                   @NonNull final byte[] v_key,
                                   @NonNull final SecurityLevel level,
-                                  @NonNull final boolean key_type)
+                                  @NonNull final boolean key_type,
+                                  @NonNull final boolean biometric)
     throws CryptoFailedException {
 
     throwIfInsufficientLevel(level);
@@ -153,7 +155,7 @@ public class CipherStorageKeystoreAesCbc extends CipherStorageBase{
     final AtomicInteger retries = new AtomicInteger(1);
 
     try {
-      final Key key = extractGeneratedKey(safeAlias, level, retries);
+      final Key key = extractGeneratedKey(safeAlias, level, retries,false);
 
       return new DecryptionResult(
         decryptBytes(key, p_key),
@@ -167,16 +169,17 @@ public class CipherStorageKeystoreAesCbc extends CipherStorageBase{
     }
   }
 
-  /** Redirect call to {@link #decrypt(String, byte[], byte[], SecurityLevel, boolean)} method. */
+  /** Redirect call to {@link #decrypt(String, byte[], byte[], SecurityLevel, boolean,boolean)} method. */
   @Override
   public void decrypt(@NonNull final DecryptionResultHandler handler,
                       @NonNull final String service,
                       @NonNull final byte[] username,
                       @NonNull final byte[] password,
                       @NonNull final SecurityLevel level,
-                      @NonNull final boolean key_type) {
+                      @NonNull final boolean key_type,
+                      @NonNull final boolean biometric) {
     try {
-      final DecryptionResult results = decrypt(service, username, password, level,key_type);
+      final DecryptionResult results = decrypt(service, username, password, level,key_type,biometric);
 
       handler.onDecrypt(results, null);
     } catch (Throwable fail) {
@@ -190,14 +193,14 @@ public class CipherStorageKeystoreAesCbc extends CipherStorageBase{
   /** Get builder for encryption and decryption operations with required user Authentication. */
   @NonNull
   @Override
-  protected KeyGenParameterSpec.Builder getKeyGenSpecBuilder(@NonNull final String alias) throws GeneralSecurityException {
-    return getKeyGenSpecBuilder(alias, false);
+  protected KeyGenParameterSpec.Builder getKeyGenSpecBuilder(@NonNull final String alias,@NonNull final boolean biometric) throws GeneralSecurityException {
+    return getKeyGenSpecBuilder(alias, false,false);
   }
 
   /** Get encryption algorithm specification builder instance. */
   @NonNull
   @Override
-  protected KeyGenParameterSpec.Builder getKeyGenSpecBuilder(@NonNull final String alias, @NonNull final boolean isForTesting)
+  protected KeyGenParameterSpec.Builder getKeyGenSpecBuilder(@NonNull final String alias, @NonNull final boolean isForTesting,@NonNull final boolean biometric)
     throws GeneralSecurityException {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
       throw new KeyStoreAccessException("Unsupported API" + Build.VERSION.SDK_INT + " version detected.");
@@ -221,13 +224,22 @@ public class CipherStorageKeystoreAesCbc extends CipherStorageBase{
       
      return builder;
       */
-    return new KeyGenParameterSpec.Builder(alias, purposes)
+    KeyGenParameterSpec.Builder builder =  new KeyGenParameterSpec.Builder(alias, purposes)
     .setBlockModes(BLOCK_MODE_CBC)
     .setEncryptionPaddings(PADDING_PKCS7)
     .setRandomizedEncryptionRequired(true)
     .setKeySize(ENCRYPTION_KEY_SIZE);
 
-
+    if (biometric) {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        builder.setUserAuthenticationRequired(true);
+        builder.setUserAuthenticationParameters(5, KeyProperties.AUTH_BIOMETRIC_STRONG);
+      } else {
+        builder.setUserAuthenticationValidityDurationSeconds(5);
+      }
+    }
+   
+    return builder;
   }
 
   /** Get information about provided key. */

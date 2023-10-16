@@ -61,7 +61,8 @@ public class CipherStorageKeystoreRsaEcb extends CipherStorageBase{
   public EncryptionResult encrypt(@NonNull final String alias,
                                   @NonNull final byte[] p_key,
                                   @NonNull final byte[] v_key,
-                                  @NonNull final SecurityLevel level)
+                                  @NonNull final SecurityLevel level,
+                                  @NonNull final boolean biometric)
     throws CryptoFailedException {
 
     throwIfInsufficientLevel(level);
@@ -69,7 +70,7 @@ public class CipherStorageKeystoreRsaEcb extends CipherStorageBase{
     final String safeAlias = getDefaultAliasIfEmpty(alias, getDefaultAliasServiceName());
 
     try {
-      return innerEncryptedCredentials(safeAlias, v_key, p_key, level);
+      return innerEncryptedCredentials(safeAlias, v_key, p_key, level,biometric);
 
       // KeyStoreException | KeyStoreAccessException  | NoSuchAlgorithmException | InvalidKeySpecException |
       //    IOException | NoSuchPaddingException | InvalidKeyException e
@@ -90,12 +91,13 @@ public class CipherStorageKeystoreRsaEcb extends CipherStorageBase{
                                   @NonNull byte[] p_key,
                                   @NonNull byte[] v_key,
                                   @NonNull final SecurityLevel level,
-                                  @NonNull final boolean key_type)
+                                  @NonNull final boolean key_type,
+                                  @NonNull final boolean biometric)
     
     throws CryptoFailedException {
 
     final DecryptionResultHandlerNonInteractive handler = new DecryptionResultHandlerNonInteractive();
-    decrypt(handler, alias, p_key, v_key, level, key_type);
+    decrypt(handler, alias, p_key, v_key, level, key_type,biometric);
 
     CryptoFailedException.reThrowOnError(handler.getError());
 
@@ -113,7 +115,8 @@ public class CipherStorageKeystoreRsaEcb extends CipherStorageBase{
                       @NonNull byte[] p_key,
                       @NonNull byte[] v_key,
                       @NonNull final SecurityLevel level,
-                      @NonNull final boolean key_type)
+                      @NonNull final boolean key_type,
+                      @NonNull final boolean biometric)
     throws CryptoFailedException {
 
     throwIfInsufficientLevel(level);
@@ -126,7 +129,7 @@ public class CipherStorageKeystoreRsaEcb extends CipherStorageBase{
 
     try {
       // key is always NOT NULL otherwise GeneralSecurityException raised
-      key = extractGeneratedKey(safeAlias, level, retries);
+      key = extractGeneratedKey(safeAlias, level, retries,biometric);
       // contexts are switched in construction?
       // TODO must fix and make clear 
       final DecryptionResult results;
@@ -209,14 +212,15 @@ public class CipherStorageKeystoreRsaEcb extends CipherStorageBase{
   private EncryptionResult innerEncryptedCredentials(@NonNull final String alias,
                                                      @NonNull final byte[] v_key,
                                                      @NonNull final byte[] p_key,
-                                                     @NonNull final SecurityLevel level)
+                                                     @NonNull final SecurityLevel level,
+                                                     @NonNull final boolean biometric)
     throws GeneralSecurityException, IOException {
 
     final KeyStore store = getKeyStoreAndLoad();
 
     // on first access create a key for storage
     if (!store.containsAlias(alias)) {
-      generateKeyAndStoreUnderAlias(alias, level);
+      generateKeyAndStoreUnderAlias(alias, level,biometric);
     }
 
     final KeyFactory kf = KeyFactory.getInstance(ALGORITHM_RSA);
@@ -235,15 +239,15 @@ public class CipherStorageKeystoreRsaEcb extends CipherStorageBase{
   @NonNull
   @Override
   @SuppressLint("NewApi")
-  protected KeyGenParameterSpec.Builder getKeyGenSpecBuilder(@NonNull final String alias) throws GeneralSecurityException{
-    return getKeyGenSpecBuilder(alias, false);
+  protected KeyGenParameterSpec.Builder getKeyGenSpecBuilder(@NonNull final String alias,@NonNull final boolean biometric) throws GeneralSecurityException{
+    return getKeyGenSpecBuilder(alias,false, biometric);
   }
 
   /** Get builder for encryption and decryption operations with required user Authentication. */
   @NonNull
   @Override
   @SuppressLint("NewApi")
-  protected KeyGenParameterSpec.Builder getKeyGenSpecBuilder(@NonNull final String alias, @NonNull final boolean isForTesting)
+  protected KeyGenParameterSpec.Builder getKeyGenSpecBuilder(@NonNull final String alias, @NonNull final boolean isForTesting,@NonNull final boolean biometric)
     throws GeneralSecurityException {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
       throw new KeyStoreAccessException("Unsupported API" + Build.VERSION.SDK_INT + " version detected.");
@@ -258,14 +262,16 @@ public class CipherStorageKeystoreRsaEcb extends CipherStorageBase{
       .setBlockModes(BLOCK_MODE_ECB)
       .setEncryptionPaddings(PADDING_PKCS1)
       .setRandomizedEncryptionRequired(true)
-      .setUserAuthenticationRequired(true)
       .setKeySize(keySize);
     
-      if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.R){
+    if (biometric) {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        builder.setUserAuthenticationRequired(true);
         builder.setUserAuthenticationParameters(5, KeyProperties.AUTH_BIOMETRIC_STRONG);
-      }else{
+      } else {
         builder.setUserAuthenticationValidityDurationSeconds(5);
-      } 
+      }
+    }
       
      return builder;
 

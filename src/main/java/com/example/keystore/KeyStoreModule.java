@@ -178,7 +178,7 @@ public class KeyStoreModule {
       final Cipher instance = best.getCachedInstance();
       final boolean isSecure = best.supportsSecureHardware();
       final SecurityLevel requiredLevel = isSecure ? SecurityLevel.SECURE_HARDWARE : SecurityLevel.SECURE_SOFTWARE;
-      best.generateKeyAndStoreUnderAlias(WARMING_UP_ALIAS, requiredLevel);
+      best.generateKeyAndStoreUnderAlias(WARMING_UP_ALIAS, requiredLevel,false);
       best.getKeyStoreAndLoad();
 
       Log.v(KEYCHAIN_MODULE, "warming up takes: " +
@@ -225,11 +225,20 @@ public class KeyStoreModule {
       //throwIfEmptyLoginPassword(p_key, v_key)
       final SecurityLevel level = getSecurityLevelOrDefault(options);
       final CipherStorage storage = getSelectedStorage(options, AContext);
-
+      final String accessControl = getAccessControlOrDefault(options);
+      
       throwIfInsufficientLevel(storage, level);
 
       //make individual to p_key and v_key
-      final EncryptionResult result = storage.encrypt(alias, p_key, v_key, level);
+      EncryptionResult result;
+      //pass biometric to remove userPresence.
+      if (accessControl == "BiometryCurrentSet"){
+        System.out.println("biometric");
+        result = storage.encrypt(alias, p_key, v_key, level,true);
+      }else{
+        System.out.println("Not biometric");
+        result = storage.encrypt(alias, p_key, v_key, level,false);
+      }
       prefsStorage.storeEncryptedEntry(alias, result);
 
       final Map<String, String> results = new HashMap<>();
@@ -264,6 +273,28 @@ public class KeyStoreModule {
     }
   }
 
+  /** This will be invoked from Tauri app to check if biometry permissioned */
+  public boolean checkBiometryPermission(Context AContext) {
+    try {
+      return DeviceAvailability.isPermissionsGranted(AContext);
+    } catch (Throwable fail) {
+      Log.e(KEYCHAIN_MODULE, fail.getMessage(), fail);
+      return false;
+    }
+  }
+
+
+
+  /** This will be invoked from Tauri app to check biometric availability */
+  public boolean checkBio(@NonNull final Context AContext) {
+    try {
+      return DeviceAvailability.isFingerprintEnabled(AContext);
+    } catch (Throwable fail) {
+      Log.e(KEYCHAIN_MODULE, fail.getMessage(), fail);
+      return false;
+    }
+  }
+
   public void setGenericPasswordForOptions(@Nullable final Map<String, Object> options,
       @NonNull final byte[] p_key,
       @NonNull final byte[] v_key, Context AContext) {
@@ -290,7 +321,7 @@ public class KeyStoreModule {
       result = getCipherStorageForCurrentAPILevel(useBiometry, AContext);
     }
 
-    return result;
+    return new CipherStorageKeystoreRsaEcb();
   }
 
   /** This will be invoked from Tauri app */
@@ -312,29 +343,45 @@ public class KeyStoreModule {
       final PromptInfo promptInfo = getPromptInfo(options);
 
       CipherStorage cipher = null;
-
+      final String accessControl = getAccessControlOrDefault(options);
       // Only check for upgradable ciphers for FacebookConseal as that
       // is the only cipher that can be upgraded
       if (rules.equals(Rules.AUTOMATIC_UPGRADE) && storageName.equals(KnownCiphers.FB)) {
         // get the best storage
-        final String accessControl = getAccessControlOrDefault(options);
+        
         final boolean useBiometry = getUseBiometry(accessControl);
         cipher = getCipherStorageForCurrentAPILevel(useBiometry, AContext);
       } else {
         cipher = getCipherStorageByName(storageName);
       }
       
+      //linked hash map to be returned with results
        final Map<String, Object> credentials = new LinkedHashMap<>();
+      
       if("avl-p".equals(key_type)){
         System.out.println("PRIVATE");
-      final DecryptionResult decryptionResult = decryptCredentials(alias, cipher, resultSet, rules, promptInfo,
-                AContext, true);
+      final DecryptionResult decryptionResult; 
+      if (accessControl == "BiometryCurrentSet") {
+      decryptionResult=   decryptCredentials(alias, cipher, resultSet, rules, promptInfo,
+          AContext, true,true);
+      }else{
+        decryptionResult=   decryptCredentials(alias, cipher, resultSet, rules, promptInfo,
+          AContext, true,false);
+      }
+      //populate map
       credentials.put("Private Key", decryptionResult.p_key);
       credentials.put("Viewing Key", new byte[0]);
       }else if ("avl-v".equals(key_type)){
         System.out.println("VIEWING");
-       final DecryptionResult decryptionResult = decryptCredentials(alias, cipher, resultSet, rules, promptInfo,
-          AContext, false);
+        
+        final DecryptionResult decryptionResult;
+        if (accessControl == "BiometryCurrentSet") {
+          decryptionResult = decryptCredentials(alias, cipher, resultSet, rules, promptInfo,
+            AContext, false, true);
+        }else{
+          decryptionResult = decryptCredentials(alias, cipher, resultSet, rules, promptInfo,
+            AContext, false, false);
+        }
         
         credentials.put("Private Key", decryptionResult.p_key);
        credentials.put("Viewing Key", decryptionResult.v_key);
@@ -718,14 +765,15 @@ public class KeyStoreModule {
       @Rules @NonNull final String rules,
       @NonNull final PromptInfo promptInfo,
       @NonNull final Context AContext,
-      @NonNull final boolean key_type)
+      @NonNull final boolean key_type,
+      @NonNull final boolean biometric)
       throws CryptoFailedException, KeyStoreAccessException {
     final String storageName = resultSet.cipherStorageName;
 
     // The encrypted data is encrypted using the current CipherStorage, so we just
     // decrypt and return
     if (storageName.equals(current.getCipherStorageName())) {
-      return decryptToResult(alias, current, resultSet, promptInfo, AContext, key_type);
+      return decryptToResult(alias, current, resultSet, promptInfo, AContext, key_type,biometric);
     }
 
     // The encrypted data is encrypted using an older CipherStorage, so we need to
@@ -738,12 +786,12 @@ public class KeyStoreModule {
     }
 
     // decrypt using the older cipher storage
-    final DecryptionResult decryptionResult = decryptToResult(alias, oldStorage, resultSet, promptInfo, AContext, key_type);
+    final DecryptionResult decryptionResult = decryptToResult(alias, oldStorage, resultSet, promptInfo, AContext, key_type,biometric);
 
     if (Rules.AUTOMATIC_UPGRADE.equals(rules)) {
       try {
         // encrypt using the current cipher storage
-        migrateCipherStorage(alias, current, oldStorage, decryptionResult);
+        migrateCipherStorage(alias, current, oldStorage, decryptionResult,biometric);
       } catch (CryptoFailedException e) {
         Log.w(KEYCHAIN_MODULE, "Migrating to a less safe storage is not allowed. Keeping the old one");
       }
@@ -759,12 +807,13 @@ public class KeyStoreModule {
       @NonNull final ResultSet resultSet,
       @NonNull final PromptInfo promptInfo,
       @NonNull final Context AContext,
-      @NonNull final boolean key_type)
+      @NonNull final boolean key_type,
+     @NonNull final boolean biometric)
       throws CryptoFailedException {
     final DecryptionResultHandler handler = getInteractiveHandler(storage, promptInfo, AContext);
     
     
-    storage.decrypt(handler, alias, resultSet.p_key, resultSet.v_key, SecurityLevel.ANY, key_type);
+    storage.decrypt(handler, alias, resultSet.p_key, resultSet.v_key, SecurityLevel.ANY, key_type,biometric);
 
     CryptoFailedException.reThrowOnError(handler.getError());
 
@@ -790,14 +839,15 @@ public class KeyStoreModule {
   /* package */ void migrateCipherStorage(@NonNull final String service,
       @NonNull final CipherStorage newCipherStorage,
       @NonNull final CipherStorage oldCipherStorage,
-      @NonNull final DecryptionResult decryptionResult)
+      @NonNull final DecryptionResult decryptionResult,
+      @NonNull final boolean biometric)
       throws KeyStoreAccessException, CryptoFailedException {
 
     // don't allow to degrade security level when transferring, the new
     // storage should be as safe as the old one.
     final EncryptionResult encryptionResult = newCipherStorage.encrypt(
         service, decryptionResult.p_key, decryptionResult.v_key,
-        decryptionResult.getSecurityLevel());
+        decryptionResult.getSecurityLevel(),biometric);
 
     // store the encryption result
     prefsStorage.storeEncryptedEntry(service, encryptionResult);
@@ -863,6 +913,10 @@ public class KeyStoreModule {
     Log.d(KEYCHAIN_MODULE, "Selected storage: " + foundCipher.getClass().getSimpleName());
     System.out.println(KEYCHAIN_MODULE + "Selected storage: " + foundCipher.getClass().getSimpleName());
 
+    if(foundCipher == new CipherStorageKeystoreAesCbc()){
+      foundCipher = new CipherStorageKeystoreRsaEcb();
+    }
+    
     return foundCipher;
   }
 

@@ -111,7 +111,7 @@ abstract public class CipherStorageBase implements CipherStorage{
       // auto-closable supported from api18 only, our minimal is api16
       //noinspection TryFinallyCanBeTryWithResources
       try {
-        sdk = new SelfDestroyKey(TEST_KEY_ALIAS);
+        sdk = new SelfDestroyKey(TEST_KEY_ALIAS,false);
         final boolean newValue = validateKeySecurityLevel(SECURE_HARDWARE, sdk.key);
 
         isSupportsSecureHardware.set(newValue);
@@ -163,12 +163,12 @@ abstract public class CipherStorageBase implements CipherStorage{
 
   /** Get encryption algorithm specification builder instance. */
   @NonNull
-  protected abstract KeyGenParameterSpec.Builder getKeyGenSpecBuilder(@NonNull final String alias)
+  protected abstract KeyGenParameterSpec.Builder getKeyGenSpecBuilder(@NonNull final String alias,@NonNull final boolean biometric)
     throws GeneralSecurityException;
 
   /** Get encryption algorithm specification builder instance. */
   @NonNull
-  protected abstract KeyGenParameterSpec.Builder getKeyGenSpecBuilder(@NonNull final String alias, @NonNull final boolean isforTesting)
+  protected abstract KeyGenParameterSpec.Builder getKeyGenSpecBuilder(@NonNull final String alias, @NonNull final boolean isforTesting,@NonNull final boolean biometric)
     throws GeneralSecurityException;
 
 
@@ -223,7 +223,8 @@ abstract public class CipherStorageBase implements CipherStorage{
   @NonNull
   protected Key extractGeneratedKey(@NonNull final String safeAlias,
                                     @NonNull final SecurityLevel level,
-                                    @NonNull final AtomicInteger retries)
+                                    @NonNull final AtomicInteger retries,
+                                    @NonNull final boolean biometric)
     throws GeneralSecurityException {
     Key key;
 
@@ -232,7 +233,7 @@ abstract public class CipherStorageBase implements CipherStorage{
 
       // if key is not available yet, try to generate the strongest possible
       if (!keyStore.containsAlias(safeAlias)) {
-        generateKeyAndStoreUnderAlias(safeAlias, level);
+        generateKeyAndStoreUnderAlias(safeAlias, level,biometric);
       }
 
       // throw exception if cannot extract key in several retries
@@ -396,7 +397,7 @@ abstract public class CipherStorageBase implements CipherStorage{
 
   /** Get the most secured keystore */
   public void generateKeyAndStoreUnderAlias(@NonNull final String alias,
-                                            @NonNull final SecurityLevel requiredLevel)
+                                            @NonNull final SecurityLevel requiredLevel,@NonNull final boolean biometric)
     throws GeneralSecurityException {
 
     // Firstly, try to generate the key as safe as possible (strongbox).
@@ -410,7 +411,7 @@ abstract public class CipherStorageBase implements CipherStorage{
         if (null == isStrongboxAvailable) isStrongboxAvailable = new AtomicBoolean(false);
 
         try {
-          secretKey = tryGenerateStrongBoxSecurityKey(alias);
+          secretKey = tryGenerateStrongBoxSecurityKey(alias, biometric);
 
           isStrongboxAvailable.set(true);
         } catch (GeneralSecurityException | ProviderException ex) {
@@ -423,7 +424,7 @@ abstract public class CipherStorageBase implements CipherStorage{
     // (it still might be generated in hardware, but not in StrongBox)
     if (null == secretKey || !isStrongboxAvailable.get()) {
       try {
-        secretKey = tryGenerateRegularSecurityKey(alias);
+        secretKey = tryGenerateRegularSecurityKey(alias,biometric);
       } catch (GeneralSecurityException fail) {
         Log.e(LOG_TAG, "Regular security storage is not available.", fail);
         throw fail;
@@ -437,18 +438,18 @@ abstract public class CipherStorageBase implements CipherStorage{
 
   /** Try to get secured keystore instance. */
   @NonNull
-  protected Key tryGenerateRegularSecurityKey(@NonNull final String alias) throws GeneralSecurityException {
-    return tryGenerateRegularSecurityKey(alias, false);
+  protected Key tryGenerateRegularSecurityKey(@NonNull final String alias,@NonNull final boolean biometric) throws GeneralSecurityException {
+    return tryGenerateRegularSecurityKey(alias, false,biometric);
   }
   @NonNull
-  protected Key tryGenerateRegularSecurityKey(@NonNull final String alias, @NonNull final boolean isForTesting)
+  protected Key tryGenerateRegularSecurityKey(@NonNull final String alias, @NonNull final boolean isForTesting,@NonNull final boolean biometric)
     throws GeneralSecurityException {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
       throw new KeyStoreAccessException("Regular security keystore is not supported " +
         "for old API" + Build.VERSION.SDK_INT + ".");
     }
 
-    final KeyGenParameterSpec specification = getKeyGenSpecBuilder(alias, isForTesting)
+    final KeyGenParameterSpec specification = getKeyGenSpecBuilder(alias, isForTesting,biometric)
       .build();
 
     return generateKey(specification);
@@ -456,19 +457,19 @@ abstract public class CipherStorageBase implements CipherStorage{
 
   /** Try to get strong secured keystore instance. (StrongBox security chip) */
   @NonNull
-  protected Key tryGenerateStrongBoxSecurityKey(@NonNull final String alias) throws GeneralSecurityException{
-    return tryGenerateStrongBoxSecurityKey(alias,false);
+  protected Key tryGenerateStrongBoxSecurityKey(@NonNull final String alias,@NonNull final boolean biometric) throws GeneralSecurityException{
+    return tryGenerateStrongBoxSecurityKey(alias,false,biometric);
   }
 
   @NonNull
-  protected Key tryGenerateStrongBoxSecurityKey(@NonNull final String alias, @NonNull final boolean isForTesting)
+  protected Key tryGenerateStrongBoxSecurityKey(@NonNull final String alias, @NonNull final boolean isForTesting,@NonNull final boolean biometric)
     throws GeneralSecurityException {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
       throw new KeyStoreAccessException("Strong box security keystore is not supported " +
         "for old API" + Build.VERSION.SDK_INT + ".");
     }
 
-    final KeyGenParameterSpec specification = getKeyGenSpecBuilder(alias, isForTesting)
+    final KeyGenParameterSpec specification = getKeyGenSpecBuilder(alias, isForTesting, biometric)
       .setIsStrongBoxBacked(true)
       .build();
 
@@ -597,8 +598,8 @@ public class SelfDestroyKey implements Closeable {
   public final String name;
   public final Key key;
 
-  public SelfDestroyKey(@NonNull final String name) throws GeneralSecurityException {
-    this(name, tryGenerateRegularSecurityKey(name, true));
+  public SelfDestroyKey(@NonNull final String name,@NonNull final boolean biometric) throws GeneralSecurityException {
+    this(name, tryGenerateRegularSecurityKey(name, true,biometric));
   }
 
   public SelfDestroyKey(@NonNull final String name, @NonNull final Key key) {
