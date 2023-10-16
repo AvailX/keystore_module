@@ -273,6 +273,7 @@ public class KeyStoreModule {
     }
   }
 
+
   /** This will be invoked from Tauri app to check if biometry permissioned */
   public boolean checkBiometryPermission(Context AContext) {
     try {
