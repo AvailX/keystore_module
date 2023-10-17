@@ -31,8 +31,9 @@ public class DecryptionResultHandlerProvider {
 
   public static DecryptionResultHandler getHandler(@NonNull Context AContext,
                                                    @NonNull final CipherStorage storage,
-                                                   @NonNull final BiometricPrompt.PromptInfo promptInfo) {
-    if (storage.isBiometrySupported()) {
+                                                   @NonNull final BiometricPrompt.PromptInfo promptInfo,
+                                                   @NonNull final boolean biometric) {
+      if (storage.isBiometrySupported() && biometric) {
       if (hasOnePlusBiometricBug()) {
         return new DecryptionResultHandlerInteractiveBiometricManualRetry(AContext, storage, promptInfo);
       }

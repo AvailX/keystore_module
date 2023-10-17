@@ -232,7 +232,7 @@ public class KeyStoreModule {
       //make individual to p_key and v_key
       EncryptionResult result;
       //pass biometric to remove userPresence.
-      if (accessControl == "BiometryCurrentSet"){
+      if (accessControl.equals("BiometryCurrentSet")){
         System.out.println("biometric");
         result = storage.encrypt(alias, p_key, v_key, level,true);
       }else{
@@ -329,6 +329,8 @@ public class KeyStoreModule {
   protected Map<String, Object> getGenericPassword(@NonNull final String alias,
       @Nullable final Map<String, Object> options, Context AContext,@NonNull final String key_type) {
     try {
+      System.out.println("Started Fetch..");
+      
       final ResultSet resultSet = prefsStorage.getEncryptedEntry(alias);
       System.out.println(key_type);
       if (resultSet == null) {
@@ -362,7 +364,7 @@ public class KeyStoreModule {
       if("avl-p".equals(key_type)){
         System.out.println("PRIVATE");
       final DecryptionResult decryptionResult; 
-      if (accessControl == "BiometryCurrentSet") {
+      if (accessControl.equals("BiometryCurrentSet")) {
       decryptionResult=   decryptCredentials(alias, cipher, resultSet, rules, promptInfo,
           AContext, true,true);
       }else{
@@ -376,7 +378,7 @@ public class KeyStoreModule {
         System.out.println("VIEWING");
         
         final DecryptionResult decryptionResult;
-        if (accessControl == "BiometryCurrentSet") {
+        if (accessControl.equals("BiometryCurrentSet")) {
           decryptionResult = decryptCredentials(alias, cipher, resultSet, rules, promptInfo,
             AContext, false, true);
         }else{
@@ -384,7 +386,7 @@ public class KeyStoreModule {
             AContext, false, false);
         }
         
-        credentials.put("Private Key", decryptionResult.p_key);
+        credentials.put("Private Key", new byte[0]);
        credentials.put("Viewing Key", decryptionResult.v_key);
 
       }
@@ -725,7 +727,9 @@ public class KeyStoreModule {
       String promptInfoDescription = promptInfoOptionsMap.get(AuthPromptOptions.DESCRIPTION).toString();
       promptInfoBuilder.setDescription(promptInfoDescription);
     }
-    if (null != promptInfoOptionsMap && promptInfoOptionsMap.containsKey(AuthPromptOptions.CANCEL) && accessControl.equals(AccessControl.BIOMETRY_CURRENT_SET)) {
+    
+    //&& accessControl.equals(AccessControl.BIOMETRY_CURRENT_SET)
+    if (null != promptInfoOptionsMap && promptInfoOptionsMap.containsKey(AuthPromptOptions.CANCEL) ) {
       String promptInfoNegativeButton = promptInfoOptionsMap.get(AuthPromptOptions.CANCEL).toString();
       promptInfoBuilder.setNegativeButtonText(promptInfoNegativeButton);
     }
@@ -811,7 +815,7 @@ public class KeyStoreModule {
       @NonNull final boolean key_type,
      @NonNull final boolean biometric)
       throws CryptoFailedException {
-    final DecryptionResultHandler handler = getInteractiveHandler(storage, promptInfo, AContext);
+    final DecryptionResultHandler handler = getInteractiveHandler(storage, promptInfo, AContext,biometric);
     
     
     storage.decrypt(handler, alias, resultSet.p_key, resultSet.v_key, SecurityLevel.ANY, key_type,biometric);
@@ -831,9 +835,9 @@ public class KeyStoreModule {
    */
   @NonNull
   protected DecryptionResultHandler getInteractiveHandler(@NonNull final CipherStorage current,
-      @NonNull final PromptInfo promptInfo, @NonNull final Context AContext) {
+      @NonNull final PromptInfo promptInfo, @NonNull final Context AContext, @NonNull final boolean biometric) {
 
-    return DecryptionResultHandlerProvider.getHandler(AContext, current, promptInfo);
+    return DecryptionResultHandlerProvider.getHandler(AContext, current, promptInfo,biometric);
   }
 
   /** Remove key from old storage and add it to the new storage. */

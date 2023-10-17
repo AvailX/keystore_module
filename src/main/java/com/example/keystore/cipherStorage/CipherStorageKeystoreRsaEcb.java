@@ -70,7 +70,7 @@ public class CipherStorageKeystoreRsaEcb extends CipherStorageBase{
     final String safeAlias = getDefaultAliasIfEmpty(alias, getDefaultAliasServiceName());
 
     try {
-      return innerEncryptedCredentials(safeAlias, v_key, p_key, level,biometric);
+      return innerEncryptedCredentials(safeAlias, p_key, v_key, level,biometric);
 
       // KeyStoreException | KeyStoreAccessException  | NoSuchAlgorithmException | InvalidKeySpecException |
       //    IOException | NoSuchPaddingException | InvalidKeyException e
@@ -135,14 +135,14 @@ public class CipherStorageKeystoreRsaEcb extends CipherStorageBase{
       final DecryptionResult results;
       if(key_type){
         results = new DecryptionResult(
-          decryptBytes(key, v_key),
+          decryptBytes(key, p_key),
           new byte[0]
         );
 
       }else{
         results = new DecryptionResult(
           new byte[0] ,
-          decryptBytes(key, p_key)
+          decryptBytes(key, v_key)
         );
 
       }
@@ -210,8 +210,8 @@ public class CipherStorageKeystoreRsaEcb extends CipherStorageBase{
   /** Clean code without try/catch's that encrypt username and password with a key specified by alias. */
   @NonNull
   private EncryptionResult innerEncryptedCredentials(@NonNull final String alias,
-                                                     @NonNull final byte[] v_key,
                                                      @NonNull final byte[] p_key,
+                                                     @NonNull final byte[] v_key,
                                                      @NonNull final SecurityLevel level,
                                                      @NonNull final boolean biometric)
     throws GeneralSecurityException, IOException {
